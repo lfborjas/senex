@@ -1,5 +1,8 @@
-*.cabal
 *~
 *.swp
 tarballs/
+*.DS_Store
 .stack-work/
+*.[ao]
+*.so
+*.dylib
