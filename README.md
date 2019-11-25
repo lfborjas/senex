@@ -4,6 +4,8 @@ Exposes Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinf
 
 ## Compiling the C libs
 
+(TODO: maybe should add an `install` task  to the C bits)
+
 ```
 ➜  csrc git:(master) ✗ make libswe.so
 cc	 -c -g -Wall -fPIC  	   swedate.c     
@@ -21,6 +23,11 @@ cc	 -shared -o libswe.so swedate.o swehouse.o swejpl.o swemmoon.o swemplan.o swe
 ➜  csrc git:(master) ✗ make libswe.a
 ar r libswe.a	swedate.o swehouse.o swejpl.o swemmoon.o swemplan.o swepcalc.o sweph.o swepdate.o swephlib.o swecl.o swehel.o
 ar: creating archive libswe.a
+➜  csrc git:(master) ✗ make libswe.dylib
 
 ➜  csrc git:(master) ✗ cp libswe.* /usr/local/lib/
+
+## Gotta export the nonstandard location I'm putting things in:
+
+export LD_LIBRARY_PATH="/usr/local/lib"
 ```

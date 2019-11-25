@@ -8,8 +8,10 @@ import Foreign.C.Types
 #include <swephexp.h>
 
 newtype PlanetNumber = PlanetNumber
-  { unPlanetNumber :: CInt }
-  deriving (Eq, Show)
+  { unPlanetNumber :: CInt } deriving (Eq, Show)
+
+newtype GregFlag = GregFlag
+  { unGregFlag :: CInt } deriving (Eq, Show)
 
 -- following:
 -- https://en.wikibooks.org/wiki/Haskell/FFI#Enumerations
@@ -33,4 +35,27 @@ newtype PlanetNumber = PlanetNumber
  , chiron = SE_CHIRON
  }
 
+#{enum GregFlag, GregFlag
+ , julian = SE_JUL_CAL
+ , gregorian = SE_GREG_CAL
+ }
 
+-- functions to make the "mini" example work:
+
+foreign import ccall unsafe "swephexp.h swe_set_ephe_path"
+c_swe_set_ephe_path :: CString -> IO ()
+
+foreign import ccall unsafe "swephexp.h swe_julday"
+c_swe_julday :: CInt -- year
+             -> CInt -- month
+             -> CInt -- day 
+             -> CDouble -- hour
+             -> GregFlag
+             -> CDouble
+
+foreign import ccall unsafe "swephexp.h swe_calc"
+c_swe_calc :: CDouble
+           -> CInt
+           -> ??
+           -> Ptr CDouble
+           -> Ptr CString
