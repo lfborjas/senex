@@ -59,7 +59,7 @@ julianDay year month day hour =
 
 -- TODO: Planet Enum type
 -- TODO: take an actual gregorian date!
-calculateCoordinates :: Double -> Planet -> Either String [CDouble]
+calculateCoordinates :: Double -> Planet -> Either String [Double]
 calculateCoordinates time planet = unsafePerformIO $ do
     allocaArray 6 $ \coords -> do
         alloca $ \error -> do
@@ -75,8 +75,8 @@ calculateCoordinates time planet = unsafePerformIO $ do
                     msg <- peekCString error
                     return $ Left msg
                 else do
-                    result <- peekArray 6 coords -- TODO: wrong, needs to be some fancy type
-                    return $ Right result
+                    result <- peekArray 6 coords
+                    return $ Right $ map realToFrac result
 
 
 -- a simple main:
