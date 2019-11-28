@@ -1,8 +1,10 @@
 # Senex
 
-Exposes Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinfo_e.htm) C library via Haskell.
+Uses Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinfo_e.htm) C library in Haskell, exposing it as a Module and then using it for a Servant-based API.
 
-## Compiling the C libs
+## Haskell bindings to the SwissEphemeris library
+
+### Compiling the C libs
 
 (TODO: maybe should add an `install` task  to the C bits)
 
@@ -32,6 +34,20 @@ ar: creating archive libswe.a
 export LD_LIBRARY_PATH="/usr/local/lib"
 ```
 
-## Compiling the `hsc` files
+N.B. I _think_ that by adding the `extra-lib-dirs` setting we may not need that?
 
-Run `hsc2hs src/*.hsc` to produce actual Haskell files. Stack seems to happily ignore hsc files!
+### Compiling the `hsc` files
+
+Run `hsc2hs src/*.hsc` to produce actual Haskell files. Stack seems to happily ignore hsc files? Although maybe adding `SWE` and `Foreign.SWE` to the exposed modules may fix it?
+
+## Using the C Bindings
+
+Example main (based on https://www.astro.com/swisseph/swephprg.htm#_Toc19111155):
+
+```
+  setEphemeridesPath "/Users/luis/code/senex/csrc/sweph_18"
+  let time = julianDay 1989 1 6 0.0
+  let coords = map (\p -> (p, (calculateCoordinates time p))) [Sun .. Chiron]
+  forM_ coords $ \(planet, coord)->
+    putStrLn $ show planet ++ ": " ++ show coord
+```
