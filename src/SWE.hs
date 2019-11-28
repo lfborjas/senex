@@ -7,8 +7,6 @@ import System.IO.Unsafe
 import Foreign.C.Types
 import Foreign.C.String
 import qualified Data.ByteString.Char8 as S
-import qualified Data.ByteString.Unsafe   as S
-import qualified Data.ByteString.Internal as S
 
 data Planet = Sun
             | Moon
@@ -43,14 +41,14 @@ planetNumber p = PlanetNumber x
     where x = CInt y
           y = fromIntegral $ fromEnum p :: Int32
 
-setEphemeridesPath :: S.ByteString -> ()
-setEphemeridesPath path = unsafePerformIO $ do
-  S.useAsCString path $ \ephePath -> do
+setEphemeridesPath :: S.ByteString -> IO ()
+setEphemeridesPath path =
+  S.useAsCString path $ \ephePath ->
     c_swe_set_ephe_path ephePath
 
 julianDay :: Int -> Int -> Int -> Double -> Double
-julianDay year month day hour = 
-    realToFrac $ do
+julianDay year month day hour =
+    realToFrac $
         c_swe_julday y m d h gregorian
             where y = fromIntegral year
                   m = fromIntegral month
@@ -60,23 +58,23 @@ julianDay year month day hour =
 -- TODO: Planet Enum type
 -- TODO: take an actual gregorian date!
 calculateCoordinates :: Double -> Planet -> Either String [Double]
-calculateCoordinates time planet = unsafePerformIO $ do
-    allocaArray 6 $ \coords -> do
-        alloca $ \error -> do
-            let iflgret = c_swe_calc 
-                            (realToFrac time)
-                            (planetNumber planet)
-                            speed
-                            coords
-                            error
-            
-            if (unCalcFlag iflgret < 0)
-                then do
-                    msg <- peekCString error
-                    return $ Left msg
-                else do
-                    result <- peekArray 6 coords
-                    return $ Right $ map realToFrac result
+calculateCoordinates time planet = unsafePerformIO $
+    allocaArray 6 $ \coords ->
+    alloca $ \errorP -> do
+    let iflgret = c_swe_calc
+                    (realToFrac time)
+                    (planetNumber planet)
+                    speed
+                    coords
+                    errorP
+
+    if unCalcFlag iflgret < 0
+        then do
+            msg <- peekCString errorP
+            return $ Left msg
+        else do
+            result <- peekArray 6 coords
+            return $ Right $ map realToFrac result
 
 
 -- a simple main:
