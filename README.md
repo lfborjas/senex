@@ -31,3 +31,7 @@ ar: creating archive libswe.a
 
 export LD_LIBRARY_PATH="/usr/local/lib"
 ```
+
+## Compiling the `hsc` files
+
+Run `hsc2hs src/*.hsc` to produce actual Haskell files. Stack seems to happily ignore hsc files!

@@ -1,3 +1,4 @@
+{-# LINE 1 "src/SWE.hsc" #-}
 {-# LANGUAGE CPP, ForeignFunctionInterface #-}
 
 module SWE where
@@ -11,7 +12,7 @@ import qualified Data.ByteString.Char8 as S
 import qualified Data.ByteString.Unsafe   as S
 import qualified Data.ByteString.Internal as S
 
-#include <swephexp.h>
+
 
 newtype PlanetNumber = PlanetNumber
   { unPlanetNumber :: CInt } deriving (Eq, Show)
@@ -25,33 +26,52 @@ newtype CalcFlag = CalcFlag
 -- following:
 -- https://en.wikibooks.org/wiki/Haskell/FFI#Enumerations
 
-#{enum PlanetNumber, PlanetNumber,
-  sun  = SE_SUN
- , moon = SE_MOON
- , mercury = SE_MERCURY
- , venus = SE_VENUS
- , mars = SE_MARS
- , jupiter = SE_JUPITER
- , saturn = SE_SATURN
- , uranus = SE_URANUS
- , neptune = SE_NEPTUNE
- , pluto = SE_PLUTO
- , meanNode    = SE_MEAN_NODE
- , trueNode = SE_TRUE_NODE
- , meanApog = SE_MEAN_APOG
- , oscuApog = SE_OSCU_APOG
- , earth    = SE_EARTH
- , chiron = SE_CHIRON
- }
+sun   :: PlanetNumber
+sun   = PlanetNumber 0
+moon  :: PlanetNumber
+moon  = PlanetNumber 1
+mercury  :: PlanetNumber
+mercury  = PlanetNumber 2
+venus  :: PlanetNumber
+venus  = PlanetNumber 3
+mars  :: PlanetNumber
+mars  = PlanetNumber 4
+jupiter  :: PlanetNumber
+jupiter  = PlanetNumber 5
+saturn  :: PlanetNumber
+saturn  = PlanetNumber 6
+uranus  :: PlanetNumber
+uranus  = PlanetNumber 7
+neptune  :: PlanetNumber
+neptune  = PlanetNumber 8
+pluto  :: PlanetNumber
+pluto  = PlanetNumber 9
+meanNode     :: PlanetNumber
+meanNode     = PlanetNumber 10
+trueNode  :: PlanetNumber
+trueNode  = PlanetNumber 11
+meanApog  :: PlanetNumber
+meanApog  = PlanetNumber 12
+oscuApog  :: PlanetNumber
+oscuApog  = PlanetNumber 13
+earth     :: PlanetNumber
+earth     = PlanetNumber 14
+chiron  :: PlanetNumber
+chiron  = PlanetNumber 15
 
-#{enum GregFlag, GregFlag
- , julian = SE_JUL_CAL
- , gregorian = SE_GREG_CAL
- }
+{-# LINE 46 "src/SWE.hsc" #-}
 
-#{enum CalcFlag, CalcFlag
- , speed = SEFLG_SPEED
- }
+julian  :: GregFlag
+julian  = GregFlag 0
+gregorian  :: GregFlag
+gregorian  = GregFlag 1
+
+{-# LINE 51 "src/SWE.hsc" #-}
+
+speed  :: CalcFlag
+speed  = CalcFlag 256
+
+{-# LINE 55 "src/SWE.hsc" #-}
 
 -- functions to make the "mini" example work:
 

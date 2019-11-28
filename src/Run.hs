@@ -8,8 +8,8 @@ import SWE
 run :: RIO App ()
 run = do
   -- from https://www.astro.com/swisseph/swephprg.htm#_Toc19111155
-  setEphemeridesPath "blah/blah"
+  setEphemeridesPath "/Users/luis/code/senex/csrc/sweph_18"
   time <- julianDay 1989 1 6 0.0
-  forM [Sun..Chiron] $ \planet ->
+  forM_ [Sun .. Chiron] $ \planet ->
     print planet ++ (calculateCoordinates time planet)
   

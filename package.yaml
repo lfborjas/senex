@@ -1,28 +1,18 @@
-name:                senex
-version:             0.1.0.0
-github:              lfborjas/senex
-license:             BSD3
-author:              Luis Borjas Reyes
-maintainer:          luis@lfborjas.com
-copyright:           2019 Luis Borjas Reyes
-
-extra-source-files:
-- README.md
-- ChangeLog.md
-
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
-
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on Github at <https://github.com/lfborjas/senex#readme>
-
-dependencies:
-- base >= 4.11 && < 10
-- rio >= 0.1.8.0
-
+library:
+  source-dirs: src
+tests:
+  senex-test:
+    source-dirs: test
+    main: Spec.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - senex
+    - hspec
+copyright: 2019 Luis Borjas Reyes
+maintainer: luis@lfborjas.com
 ghc-options:
 - -Wall
 - -Wcompat
@@ -31,32 +21,27 @@ ghc-options:
 - -Wincomplete-uni-patterns
 - -Wpartial-fields
 - -Wredundant-constraints
-
-library:
-  source-dirs: src
-
+dependencies:
+- bytestring
+- base >= 4.11 && < 10
+- rio >= 0.1.8.0
+name: senex
+version: 0.1.0.0
+extra-source-files:
+- README.md
+- ChangeLog.md
+author: Luis Borjas Reyes
+github: lfborjas/senex
+license: BSD3
 executables:
   senex-exe:
-    main:                Main.hs
-    source-dirs:         app
+    source-dirs: app
+    main: Main.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
     dependencies:
     - senex
     - optparse-simple
-
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-
-tests:
-  senex-test:
-    main:                Spec.hs
-    source-dirs:         test
-    dependencies:
-    - senex
-    - hspec
-
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+description: Please see the README on Github at <https://github.com/lfborjas/senex#readme>
