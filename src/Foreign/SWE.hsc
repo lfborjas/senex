@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, ForeignFunctionInterface #-}
 
-module SWE where
+module Foreign.SWE where
 
 import Foreign
 import Foreign.C.Types
@@ -79,73 +79,3 @@ foreign import ccall unsafe "swephexp.h swe_get_planet_name"
     c_swe_get_planet_name :: CInt
                           -> CString
                           -> CString
-
--- the glue
-
-data Planet = Sun
-            | Moon
-            | Mercury
-            | Venus
-            | Mars
-            | Jupiter
-            | Saturn
-            | Uranus
-            | Neptune
-            | Pluto
-            | MeanNode
-            | TrueNode
-            | MeanApog
-            | OscuApog
-            | Earth
-            | Chiron
-            deriving (Show, Eq, Ord, Enum)
-
-data Coordinates = Coords
-  {
-    lat :: Double
-  , long :: Double
-  , distance :: Double
-  , longSpeed :: Double
-  , latSpeed :: Double
-  , distSpeed :: Double
-  } deriving (Show, Eq, Ord)
-
-planetNumber :: Planet -> PlanetNumber
-planetNumber = PlanetNumber . fromEnum
-
-setEphemeridesPath :: String -> IO ()
-setEphemeridesPath path = unsafePerformIO $ do
-  S.useAsCString path $ \ephePath -> do
-    c_swe_set_ephe_path ephePath
-
-julianDay :: Int -> Int -> Int -> Double -> Double
-julianDay year month day hour = unsafePerformIO $ do
-  realToFrac $ c_swe_julday y m d h gregorian
-    where y = realToFrac year
-          m = realToFrac month
-          d = realToFrac day
-          h = realToFrac hour
-
--- TODO: Planet Enum type
--- TODO: take an actual gregorian date!
-calculateCoordinates :: Double -> Planet -> Either String [Double]
-calculateCoordinates time planet = unsafePerformIO $ do
-  allocaArray 6 $ \coords -> do
-    alloca $ \error -> do
-      iflgret <- c_swe_calc (realToFrac time)
-                 planetNumber planet
-                 speed
-                 coords
-                 error
-      if (iflgret < 0)
-        then do
-          msg <- peekCString error
-          return $ Left msg
-        else do
-          result <- peekArray coords -- TODO: wrong, needs to be some fancy type
-          return $ Right result
-
-
--- a simple main:
-
--- https://www.astro.com/swisseph/swephprg.htm#_Toc19111155
