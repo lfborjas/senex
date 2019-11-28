@@ -36,6 +36,10 @@ data Coordinates = Coords
   , distSpeed :: Double
   } deriving (Show, Eq, Ord)
 
+fromList :: [Double] -> Coordinates
+fromList (a:b:c:d:e:f:_) = Coords a b c d e f
+fromList _ = error "Invalid coordinate array"
+
 planetNumber :: Planet -> PlanetNumber
 planetNumber p = PlanetNumber x
     where x = CInt y
@@ -55,9 +59,8 @@ julianDay year month day hour =
                   d = fromIntegral day
                   h = realToFrac hour
 
--- TODO: Planet Enum type
 -- TODO: take an actual gregorian date!
-calculateCoordinates :: Double -> Planet -> Either String [Double]
+calculateCoordinates :: Double -> Planet -> Either String Coordinates
 calculateCoordinates time planet = unsafePerformIO $
     allocaArray 6 $ \coords ->
     alloca $ \errorP -> do
@@ -74,7 +77,7 @@ calculateCoordinates time planet = unsafePerformIO $
             return $ Left msg
         else do
             result <- peekArray 6 coords
-            return $ Right $ map realToFrac result
+            return $ Right $ fromList $ map realToFrac result
 
 
 -- a simple main:
