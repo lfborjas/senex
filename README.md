@@ -79,3 +79,222 @@ Cusps: (Cusps {i = 112.20189657163523, ii = 138.4658382335878, iii = 167.6968248
 ```
 
 Note that the `calculateCoordinates` function is currently using the default calculations from Swiss Ephemeris, which return the _ecliptic_ degree numbers for position. One could also obtain equatorial. To compare the output of the above main to the <astro.com> raw data, you can use this page: https://www.astro.com/swisseph/swetest.htm
+
+## Using the API
+
+If you execute `stack run`, you'll launch the little web server. Right now there's only one endpoint, `/api/horoscope`, which outputs all the necessary data to draw a chart using the Placidus system (with geocentric, ecliptic planetary coordinates).
+
+E.g.
+
+```bash
+curl -H "Content-Type: application/json" -vd '{"dob": "2019-11-29T20:52:39.230Z", "loc": [40.7128, 74.0060]}' http://localhost:3030/api/horoscope | jq
+```
+
+Will return:
+
+```json
+{
+  "angles": {
+    "coAscendantMunkasey": 184.07155823288545,
+    "armc": 95.61800714416292,
+    "vertex": 12.249319507635633,
+    "coAscendantKoch": 189.73116677377803,
+    "polarAscendant": 9.731166773778025,
+    "ascendant": 184.45905828112743,
+    "equatorialAscendant": 186.11946559553854,
+    "mc": 95.15715438291743
+  },
+  "cusps": {
+    "viii": 30.857771867801034,
+    "iv": 275.15715438291744,
+    "xii": 158.7976013458591,
+    "vii": 4.459058281127454,
+    "iii": 241.49309969070742,
+    "xi": 128.63707423591143,
+    "vi": 338.7976013458591,
+    "x": 95.15715438291743,
+    "ii": 210.857771867801,
+    "v": 308.6370742359114,
+    "ix": 61.493099690707425,
+    "i": 184.45905828112743
+  },
+  "planets": [
+    {
+      "planet": "Sun",
+      "coords": {
+        "long": -3.2442303790940265e-05,
+        "distSpeed": -0.00017325688712833964,
+        "distance": 0.9863760524073597,
+        "lat": 247.33264880176225,
+        "longSpeed": 1.0133084132855246,
+        "latSpeed": -3.863831321763737e-05
+      }
+    },
+    {
+      "planet": "Moon",
+      "coords": {
+        "long": -0.8193364655556776,
+        "distSpeed": 3.4199571717112877e-05,
+        "distance": 0.002595173044398994,
+        "lat": 287.65707267611856,
+        "longSpeed": 12.85711522794824,
+        "latSpeed": -1.1591077157393737
+      }
+    },
+    {
+      "planet": "Mercury",
+      "coords": {
+        "long": 2.2840468202086095,
+        "distSpeed": 0.023643862939218642,
+        "distance": 1.0394771384346215,
+        "lat": 227.4720925435879,
+        "longSpeed": 1.1103955965543209,
+        "latSpeed": -0.07381439176273445
+      }
+    },
+    {
+      "planet": "Venus",
+      "coords": {
+        "long": -1.4298689406579366,
+        "distSpeed": -0.004673349588300221,
+        "distance": 1.4436347832633516,
+        "lat": 274.7729229195149,
+        "longSpeed": 1.2393033430774942,
+        "latSpeed": -0.03062141107869374
+      }
+    },
+    {
+      "planet": "Mars",
+      "coords": {
+        "long": 0.6389925032221768,
+        "distSpeed": -0.005799817007780383,
+        "distance": 2.394266061807406,
+        "lat": 216.9582906658545,
+        "longSpeed": 0.6613181108727035,
+        "latSpeed": -0.007476121429545853
+      }
+    },
+    {
+      "planet": "Jupiter",
+      "coords": {
+        "long": 0.14065496787551218,
+        "distSpeed": 0.0055021301641855185,
+        "distance": 6.140564456540776,
+        "lat": 269.35796286622525,
+        "longSpeed": 0.22093221925582224,
+        "latSpeed": -0.0017197586772309318
+      }
+    },
+    {
+      "planet": "Saturn",
+      "coords": {
+        "long": 0.09219558630909697,
+        "distSpeed": 0.010786603076421411,
+        "distance": 10.766634669694042,
+        "lat": 287.87005793978847,
+        "longSpeed": 0.09923907956042938,
+        "latSpeed": -0.0013210873063737077
+      }
+    },
+    {
+      "planet": "Uranus",
+      "coords": {
+        "long": -0.5086037140772992,
+        "distSpeed": 0.009634594204334702,
+        "distance": 18.996900475321056,
+        "lat": 33.3730578798885,
+        "longSpeed": -0.03189501312360131,
+        "latSpeed": 0.0003803078778294534
+      }
+    },
+    {
+      "planet": "Neptune",
+      "coords": {
+        "long": -1.0404667767161933,
+        "distSpeed": 0.01714450411055644,
+        "distance": 29.77022690830857,
+        "lat": 345.9277533857561,
+        "longSpeed": 0.0013585201191201608,
+        "latSpeed": 0.00044575928526611444
+      }
+    },
+    {
+      "planet": "Pluto",
+      "coords": {
+        "long": -0.6093798128580833,
+        "distSpeed": 0.012651161944830309,
+        "distance": 34.630835428945375,
+        "lat": 291.42159066580865,
+        "longSpeed": 0.02585129866720648,
+        "latSpeed": -0.0012984194145876868
+      }
+    },
+    {
+      "planet": "MeanNode",
+      "coords": {
+        "long": 0,
+        "distSpeed": 0,
+        "distance": 0.0025695552897999903,
+        "lat": 99.940245204816,
+        "longSpeed": -0.0529198493423801,
+        "latSpeed": 0
+      }
+    },
+    {
+      "planet": "TrueNode",
+      "coords": {
+        "long": 0,
+        "distSpeed": -2.000108152646491e-05,
+        "distance": 0.0025454732460946884,
+        "lat": 98.64506720104299,
+        "longSpeed": 0.014766990832911874,
+        "latSpeed": 0
+      }
+    },
+    {
+      "planet": "MeanApog",
+      "coords": {
+        "long": -4.934892324024697,
+        "distSpeed": 0,
+        "distance": 0.0027106251317225464,
+        "lat": 353.45270582739926,
+        "longSpeed": 0.11199567205597004,
+        "latSpeed": -0.004183727585189979
+      }
+    },
+    {
+      "planet": "OscuApog",
+      "coords": {
+        "long": -5.19812275167748,
+        "distSpeed": -5.769891521104746e-06,
+        "distance": 0.0027194482077314954,
+        "lat": 3.8151605129556345,
+        "longSpeed": -3.557246823636227,
+        "latSpeed": 0.01887116086156039
+      }
+    },
+    {
+      "planet": "Earth",
+      "coords": {
+        "long": 0,
+        "distSpeed": 0,
+        "distance": 0,
+        "lat": 0,
+        "longSpeed": 0,
+        "latSpeed": 0
+      }
+    },
+    {
+      "planet": "Chiron",
+      "coords": {
+        "long": 3.0425800620614827,
+        "distSpeed": 0.01597359808865773,
+        "distance": 18.396872395030705,
+        "lat": 1.5149084336742755,
+        "longSpeed": -0.012095695862155824,
+        "latSpeed": -0.0036824990895765585
+      }
+    }
+  ]
+}
+```
