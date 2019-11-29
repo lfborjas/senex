@@ -51,6 +51,8 @@ newtype CalcFlag = CalcFlag
 
 #{enum CalcFlag, CalcFlag
  , speed = SEFLG_SPEED
+ , swissEph = SEFLG_SWIEPH
+ , equatorialPositions = SEFLG_EQUATORIAL
  }
 
 -- functions to make the "mini" example work:

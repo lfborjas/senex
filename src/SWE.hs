@@ -86,25 +86,32 @@ toHouseSystemFlag Campanus      = ord 'C'
 toHouseSystemFlag Equal         = ord 'A'
 toHouseSystemFlag WholeSign     = ord 'W'
 
+
+-- TODO: these fromList fns could be captured in a typeclass...
 fromList :: [Double] -> Coordinates
 fromList (a : b : c : d : e : f : _) = Coords a b c d e f
 fromList _                           = error "Invalid coordinate array"
 
 fromCuspsList :: [Double] -> HouseCusps
-fromCuspsList (_ : i : ii : iii : iv : v : vi : vii : viii : ix : x : xi : xii : xs)
-    = Cusps i ii iii iv v vi vii viii ix x xi xii
+fromCuspsList (_ : _i : _ii : _iii : _iv : _v : _vi : _vii : _viii : _ix : _x : _xi : _xii : _)
+    = Cusps _i _ii _iii _iv _v _vi _vii _viii _ix _x _xi _xii
 fromCuspsList _ = error "Invalid cusps list"
 
 fromAnglesList :: [Double] -> Angles
-fromAnglesList (a : mc : armc : v : ea : cak : cam : pa : _ : _) =
-    Angles a mc armc v ea cak cam pa
+fromAnglesList (a : _mc : _armc : vtx : ea : cak : cam : pa : _ : _) =
+    Angles a _mc _armc vtx ea cak cam pa
 fromAnglesList _ = error "Invalid angles list"
 
 planetNumber :: Planet -> PlanetNumber
-planetNumber p = PlanetNumber x
+planetNumber p = PlanetNumber $ CInt y
   where
-    x = CInt y
     y = fromIntegral $ fromEnum p :: Int32
+
+-- combine bitwise options. Using this to obtain the equatorial,
+-- not eliptical, positions of planetary bodies:
+-- 
+calculationOptions :: [CalcFlag] -> CalcFlag
+calculationOptions = CalcFlag . foldr ((.|.) . unCalcFlag) 0
 
 basicCoords :: (Double, Double) -> Coordinates
 basicCoords (latitude, longitude) = Coords latitude longitude 0 0 0 0
@@ -127,6 +134,7 @@ calculateCoordinates time planet =
     unsafePerformIO $ allocaArray 6 $ \coords -> alloca $ \errorP -> do
         let iflgret = c_swe_calc (realToFrac time)
                                  (planetNumber planet)
+                                 --(calculationOptions [swissEph, speed, equatorialPositions ])
                                  speed
                                  coords
                                  errorP
