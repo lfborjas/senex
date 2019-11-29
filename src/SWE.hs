@@ -74,7 +74,7 @@ data Angles = Angles
   , polarAscendant :: Double
   } deriving (Show, Eq)
 
-  -- in the C lib, house systems are expected as ASCII
+-- in the C lib, house systems are expected as ASCII
 -- codes for specific characters (!)
 -- documentation at: https://www.astro.com/swisseph/swephprg.htm#_Toc19111265
 toHouseSystemFlag :: HouseSystem -> Int
