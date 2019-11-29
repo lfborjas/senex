@@ -16,8 +16,10 @@ main = do
   setEphemeridesPath "/Users/luis/code/senex/csrc/sweph_18"
   let time = julianDay 1989 1 6 0.0
   let coords = map (\p -> (p, (calculateCoordinates time p))) [Sun .. Chiron]
+  let cusps  = calculateCusps time (basicCoords (14.1037303,-87.1872054)) Placidus
   forM_ coords $ \(planet, coord)->
     putStrLn $ show planet ++ ": " ++ show coord
+  putStrLn $ "Cusps: " ++ show cusps
   {- (options, ()) <- simpleOptions
     $(simpleVersion Paths_senex.version)
     "Header for command line arguments"
