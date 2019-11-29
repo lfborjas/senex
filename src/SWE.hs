@@ -1,8 +1,11 @@
+{-# LANGUAGE DeriveGeneric     #-}
+
 module SWE where
 
 import           Foreign.SWE
 
 import           Foreign
+import           GHC.Generics
 import           System.IO.Unsafe
 import           Foreign.C.Types
 import           Foreign.C.String
@@ -25,7 +28,7 @@ data Planet = Sun
             | OscuApog
             | Earth
             | Chiron
-            deriving (Show, Eq, Ord, Enum)
+            deriving (Show, Eq, Ord, Enum, Generic)
 
 data HouseSystem = Placidus
                  | Koch
@@ -34,7 +37,7 @@ data HouseSystem = Placidus
                  | Campanus
                  | Equal
                  | WholeSign
-                 deriving (Show, Eq, Ord)
+                 deriving (Show, Eq, Ord, Generic)
 
 data Coordinates = Coords
   {
@@ -44,7 +47,7 @@ data Coordinates = Coords
   , longSpeed :: Double
   , latSpeed :: Double
   , distSpeed :: Double
-  } deriving (Show, Eq, Ord)
+  } deriving (Show, Eq, Ord, Generic)
 
 data HouseCusps = Cusps
   {
@@ -60,7 +63,7 @@ data HouseCusps = Cusps
     , x :: Double
     , xi :: Double
     , xii :: Double
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic)
 
 data Angles = Angles
   {
@@ -72,7 +75,7 @@ data Angles = Angles
   , coAscendantKoch :: Double
   , coAscendantMunkasey :: Double
   , polarAscendant :: Double
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic)
 
 -- in the C lib, house systems are expected as ASCII
 -- codes for specific characters (!)
