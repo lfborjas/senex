@@ -8,15 +8,21 @@ import SWE (setEphemeridesPath)
 import API (app)
 import RIO.Process
 import Options.Applicative.Simple
-import           Network.Wai.Handler.Warp (run)
+import           Network.Wai.Handler.Warp (runSettings, setPort, setBeforeMainLoop, defaultSettings)
 import qualified Paths_senex
 import Prelude (putStrLn)
 
 main :: IO ()
 main = do
   setEphemeridesPath "/Users/luis/code/senex/csrc/sweph_18"
-  putStrLn "Running on port 3030"
-  run 3030 app
+  -- from https://github.com/haskell-servant/servant-swagger/issues/45
+  -- and https://gist.github.com/fizruk/f9213e20ea68a9d6128f515c70a6e0e3
+  let port = 3030
+      settings =
+        setPort port $
+        setBeforeMainLoop (putStrLn $ "Listening on port " `mappend` show port)
+        defaultSettings
+  runSettings settings =<< app
   -- TODO : figure out how to use the RIO App monad to send context to 
   -- things...
   -- reference: https://github.com/gvolpe/exchange-rates/blob/master/src/Http/Server.hs

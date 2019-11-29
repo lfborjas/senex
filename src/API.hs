@@ -16,6 +16,7 @@ import Servant.API
 import Data.Time
 import           Network.Wai
 import           Network.Wai.Handler.Warp
+import Network.Wai.Middleware.Cors
 import qualified Servant as Servant
 import qualified SWE as SWE
 
@@ -94,5 +95,6 @@ apiServer = horoscope
 api :: Servant.Proxy Api
 api = Servant.Proxy
 
-app :: Application
-app = Servant.serve api apiServer
+app :: IO Application
+app = return $ cors (const $ Just policy) $ Servant.serve api apiServer
+  where policy = simpleCorsResourcePolicy { corsRequestHeaders = ["Content-Type"] }
