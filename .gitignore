@@ -6,3 +6,4 @@ tarballs/
 *.[ao]
 *.so
 *.dylib
+frontend/elm-stuff/*

@@ -2,6 +2,10 @@
 
 Uses Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinfo_e.htm) C library in Haskell, exposing it as a Module and then using it for a Servant-based API.
 
+## Development
+
+Been using VSCode with `Haskell Language Server` and `Haskell Language` as extensions; it's been quite alright except for [the weird memory leak in HIE](https://dimjasevic.net/marko/2018/08/15/haskell-ide-the-memory-hog-engine/) (!)
+
 ## Haskell bindings to the SwissEphemeris library
 
 ### Compiling the C libs
