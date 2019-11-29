@@ -52,7 +52,7 @@ library
     , servant-server
     , text
     , time
-    ,  wai
+    , wai
     , warp
   default-language: Haskell2010
   extra-libraries: swe
@@ -71,6 +71,7 @@ executable senex-exe
     , optparse-simple
     , rio >=0.1.8.0
     , senex
+    , warp
   default-language: Haskell2010
 
 test-suite senex-test
