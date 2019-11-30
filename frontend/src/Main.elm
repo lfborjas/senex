@@ -1,12 +1,12 @@
 import Browser
 import Http
---import Element exposing (..)
---import Element.Events exposing (..)
---import Element.Input exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Encode as Encode
+import Json.Decode as Decode
+import Json.Decode.Pipeline exposing (required, optional, hardcoded)
+
 
 main =
   Browser.element
@@ -20,13 +20,13 @@ main =
 type Model = Failure
            | Loading
            | NotStarted
-           | Success String
+           | Success HoroscopeResponse
 
 init : () -> (Model, Cmd Msg)
 init _ = (NotStarted, Cmd.none)
 
 type Msg = AskData 
-         | GotData (Result Http.Error String)
+         | GotData (Result Http.Error HoroscopeResponse)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -36,8 +36,8 @@ update msg model =
 
     GotData result ->
       case result of
-        Ok responseText ->
-          (Success responseText, Cmd.none)
+        Ok r ->
+          (Success r, Cmd.none)
         Err _ ->
           (Failure, Cmd.none)
 
@@ -61,8 +61,10 @@ view model =
           [ 
             button [ onClick AskData ] [ text "Get Data" ]
           ]
-      Success t ->
-        pre [] [ text t ]
+      Success _ ->
+        pre [] [ text "We got some data!" ]
+
+-- Server Interactions
 
 type alias HoroscopeRequest = 
   {
@@ -78,6 +80,63 @@ m =
   , loc = [14.0839053, -87.2750137]
   }
 
+type       House = I
+                 | II
+                 | III
+                 | IV
+                 | V
+                 | VI
+                 | VII
+                 | VIII
+                 | IX
+                 | X
+                 | XI
+                 | XII
+
+type       Planet = Sun
+                  | Moon
+                  | Mercury
+                  | Venus
+                  | Mars
+                  | Jupiter
+                  | Saturn
+                  | Uranus
+                  | Neptune
+                  | Pluto
+                  | MeanNode
+                  | TrueNode
+                  | MeanApog
+                  | OscuApog
+                  | Earth
+                  | Chiron
+
+type alias HouseCusp =
+  {
+    house : House
+  , cusp  : Float
+  }
+
+type alias Coordinates =
+  {
+    lat : Float
+  , long : Float
+  }
+
+type alias PlanetPosition =
+  {
+    planet : Planet
+  , position : Coordinates
+  }
+
+-- note that in the Placidus system, the Ascendant, MC, Descendant and IC
+-- correspond to the I, X, VII, and IV houses, respectively, so we ignore
+-- the `angles` data provided by the server.
+type alias HoroscopeResponse = 
+  {
+    houseCusps : List HouseCusp
+  , planetaryPositions : List PlanetPosition
+  }
+
 encodeHoroscopeRequest : HoroscopeRequest -> Encode.Value
 encodeHoroscopeRequest data =
   Encode.object
@@ -90,6 +149,16 @@ getHoroscopeData : Cmd Msg
 getHoroscopeData =
   Http.post
     { url = "http://localhost:3030/api/horoscope"
-    , expect = Http.expectString GotData
+    , expect = Http.expectJson GotData horoscopeDecoder
     , body = encodeHoroscopeRequest m |> Http.jsonBody
     }
+
+horoscopeDecoder : Decode.Decoder HoroscopeResponse
+horoscopeDecoder = 
+  Decode.succeed HoroscopeResponse
+    |> required "cusps" (Decode.keyValuePairs Decode.float)
+    |> required "planets" (Decode.keyValuePairs Decode.float)
+
+{- cuspsDecoder : Decode.Decoder (List HouseCusp)
+cuspsDecoder =
+  Decode. -}
