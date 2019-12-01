@@ -41,8 +41,8 @@ data HouseSystem = Placidus
 
 data Coordinates = Coords
   {
-    lat :: Double
-  , long :: Double
+    long :: Double
+  , lat :: Double
   , distance :: Double
   , longSpeed :: Double
   , latSpeed :: Double
