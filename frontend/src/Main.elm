@@ -519,8 +519,8 @@ zodiacSigns : Circle -> List (Svg Msg)
 zodiacSigns c = List.map (zodiacSign c) westernSigns
 
 zodiacSign : Circle -> ZodiacSign -> Svg Msg
-zodiacSign container sign =
-  Svg.path [d (buildSignPath container sign), fill (signColor sign), strokeWidth "0", stroke "none"]
+zodiacSign container {name, longitude, element} =
+  Svg.path [d (buildSlicePath container longitude), fill (elementColor element), strokeWidth "0", stroke "none"]
    []
 
 -- Helper functions for the crazy math
@@ -535,8 +535,8 @@ polarToCartesian { centerX, centerY, radius } angle =
   in
   {x = centerX + x_, y = centerY + y_}
 
-signColor : ZodiacSign -> String
-signColor {name, longitude, element} =
+elementColor : ClassicalElement -> String
+elementColor element =
   let
     color = case element of
         Earth -> Color.darkGreen
@@ -548,12 +548,12 @@ signColor {name, longitude, element} =
         
 
 -- from: https://stackoverflow.com/a/43211655
-buildSignPath : Circle -> ZodiacSign -> String
-buildSignPath containerCircle {name, longitude, element} =
+buildSlicePath : Circle -> Float -> String
+buildSlicePath containerCircle longitude =
   let
       endAngle = longitude + 30.0
       startAngle = longitude
-      spread     = 32 -- TODO: calculate from radius!
+      spread     = containerCircle.radius * 0.125
       innerCircle = {containerCircle | radius = containerCircle.radius - spread}
       innerStart = polarToCartesian innerCircle endAngle
       innerEnd   = polarToCartesian innerCircle startAngle
