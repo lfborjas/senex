@@ -520,7 +520,8 @@ houses containerWidth housesData =
   in
   g [SvgAttrs.id "housesCircle"]
     [ housesCircle containerCircle
-    , g [SvgAttrs.id "houses"] (drawHouses containerCircle housesData)
+    , g [SvgAttrs.id "houses"] (drawHouses  containerCircle housesData)
+    , g [SvgAttrs.id "ruler"]  (drawDegrees containerCircle (List.range 0 360))
     ]
 
 housesCircle : Circle -> Svg Msg
@@ -530,11 +531,21 @@ housesCircle {centerX, centerY, radius} =
 drawHouses : Circle -> List HouseCusp -> List (Svg Msg)
 drawHouses c d = List.map (drawHouse c) d
 
+drawDegrees : Circle -> List Int -> List (Svg Msg)
+drawDegrees c d = List.map (drawDegree c) d
+
+drawDegree : Circle -> Int -> Svg Msg
+drawDegree container dg =
+  g []
+    [ Svg.path [d (drawLinePath container (toFloat dg) (0.128*1.5)), fill "none", strokeWidth "1", stroke (Color.toCssString Color.lightGray)] []
+    , drawTextAtDegree container (String.fromInt dg)  "font: italic 2px serif; fill: #222;" -(toFloat dg)
+    ]
+
 drawHouse : Circle -> HouseCusp -> Svg Msg
 drawHouse container {house, cusp} =
   g [SvgAttrs.id (Debug.toString house)] 
-    [ Svg.path [d (drawLinePath container cusp (0.128*2.0)), fill "none", strokeWidth "2", stroke (Color.toCssString Color.black) ] []
-    , drawTextAtDegree container (Debug.toString house) cusp
+    [ Svg.path [d (drawLinePath container -cusp (0.128*2.0)), fill "none", strokeWidth "2", stroke (Color.toCssString Color.black) ] []
+    , drawTextAtDegree container (Debug.toString house)  "font: italic 15px serif; fill: #333;" -(cusp+8.5)
     ]
 
 zodiacCircle : Circle -> Svg Msg
@@ -546,7 +557,7 @@ zodiacSigns c = List.map (zodiacSign c) westernSigns
 
 zodiacSign : Circle -> ZodiacSign -> Svg Msg
 zodiacSign container {name, longitude, element} =
-  Svg.path [d (buildSlicePath container 30.0 0.125 longitude), fill (elementColor element), strokeWidth "0", stroke "none"]
+  Svg.path [d (buildSlicePath container 30.0 0.125 (-longitude)), fill (elementColor element), strokeWidth "0", stroke "none"]
    []
 
 -- Helper functions for the crazy math
@@ -577,8 +588,8 @@ elementColor element =
 buildSlicePath : Circle -> Float -> Float -> Float -> String
 buildSlicePath containerCircle length spreadRatio longitude =
   let
-      endAngle = longitude + length
-      startAngle = longitude
+      endAngle = longitude
+      startAngle = longitude - length
       spread     = containerCircle.radius * spreadRatio
       innerCircle = {containerCircle | radius = containerCircle.radius - spread}
       innerStart = polarToCartesian innerCircle endAngle
@@ -615,13 +626,13 @@ drawLinePath containerCircle longitude lineLength =
   in
   String.join " " elements
 
-drawTextAtDegree : Circle -> String -> Float -> Svg Msg
-drawTextAtDegree containerCircle text longitude =
+drawTextAtDegree : Circle -> String -> String -> Float -> Svg Msg
+drawTextAtDegree containerCircle text style longitude =
   let
     spread = containerCircle.radius * (0.128*1.5)
-    loc = polarToCartesian {containerCircle | radius = containerCircle.radius - spread} (longitude+8.5)
+    loc = polarToCartesian {containerCircle | radius = containerCircle.radius - spread} longitude
   in
-    Svg.text_ [SvgAttrs.x (String.fromFloat loc.x), SvgAttrs.y (String.fromFloat loc.y), SvgAttrs.style "font: italic 15px serif; fill: #333;"]
+    Svg.text_ [SvgAttrs.x (String.fromFloat loc.x), SvgAttrs.y (String.fromFloat loc.y), SvgAttrs.style style]
       [ Svg.text text ]
   
 
