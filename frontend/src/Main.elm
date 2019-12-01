@@ -8,6 +8,18 @@ import Json.Decode as Decode exposing (Decoder, succeed, andThen, map, map2, fie
 import Json.Decode.Pipeline exposing (required, optional, hardcoded)
 import List as List
 
+{- 
+  Simple app to call our Haskell backend (see ../src/Api.hs for the API definition)
+
+  References:
+  * https://guide.elm-lang.org/effects/json.html
+  * https://package.elm-lang.org/packages/elm/json/latest/Json-Decode#andThen
+  * https://github.com/elm/json/tree/1.1.3/src
+  * https://package.elm-lang.org/packages/NoRedInk/elm-json-decode-pipeline/latest/
+  * https://package.elm-lang.org/packages/elm/core/latest/Debug#toString
+
+-}
+
 main =
   Browser.element
     {
@@ -17,9 +29,9 @@ main =
     , view = view
     }
 
-type Model = Failure
+type Model = NotStarted
            | Loading
-           | NotStarted
+           | Failure
            | Success HoroscopeResponse
 
 init : () -> (Model, Cmd Msg)
