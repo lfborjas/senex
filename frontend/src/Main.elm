@@ -7,6 +7,9 @@ import Json.Encode as Encode
 import Json.Decode as Decode exposing (Decoder, succeed, andThen, map, map2, field, list, float, string, keyValuePairs)
 import Json.Decode.Pipeline exposing (required, optional, hardcoded)
 import List as List
+import Maybe as Maybe exposing (..)
+import String as String
+import Result as Result
 
 {- 
   Simple app to call our Haskell backend (see ../src/Api.hs for the API definition)
@@ -30,6 +33,7 @@ main =
     }
 
 type Model = NotStarted
+           | BuildingRequest HoroscopeRequest
            | Loading
            | Failure
            | Success HoroscopeResponse
@@ -38,13 +42,36 @@ init : () -> (Model, Cmd Msg)
 init _ = (NotStarted, Cmd.none)
 
 type Msg = AskData 
+         | GotDob String
+         | GotLoc String
          | GotData (Result Http.Error HoroscopeResponse)
+
+parseLoc : String -> List Float
+parseLoc v =
+  String.split "," v
+    |> List.map String.toFloat
+    |> List.map (Maybe.withDefault 0)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
+    GotDob dob ->
+      case model of
+          BuildingRequest data ->
+            (BuildingRequest {data | dob = Just dob}, Cmd.none)
+          _ ->
+            (BuildingRequest {dob = Just dob, loc = Nothing}, Cmd.none)
+ 
+    GotLoc loc ->
+      case model of
+          BuildingRequest data ->
+              (BuildingRequest {data | loc = Just loc}, Cmd.none)
+      
+          _ ->
+            (BuildingRequest {dob = Nothing, loc = Just loc}, Cmd.none)
+ 
     AskData -> 
-      (Loading, getHoroscopeData)
+      (Loading, getHoroscopeData model)
 
     GotData result ->
       case result of
@@ -70,9 +97,16 @@ view model =
         text "Loading..."
       NotStarted ->
         div []
-          [ 
-            button [ onClick AskData ] [ text "Get Data for 1989/1/6" ]
+          [ input [type_ "text", placeholder "Date of Birth", onInput GotDob ] []
+          , input [type_ "text", placeholder "Location (lat, long)", onInput GotLoc] []
+          , button [ onClick AskData ] [ text "Enter data!" ]
           ]
+      BuildingRequest r ->
+        div []
+          [ input [type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
+          , input [type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc)] []
+          , button [ onClick AskData ] [ text "Enter data!" ]
+          ]       
       Success data ->
         astroDataTables data
 
@@ -128,17 +162,17 @@ housesTable cusps =
 
 type alias HoroscopeRequest = 
   {
-    dob : String
+    dob : Maybe String
   --, loc : (Float, Float)
-  , loc : List Float
+  , loc : Maybe String
   }
 
-m : HoroscopeRequest
+{- m : HoroscopeRequest
 m =
   {
     dob = "1989-01-06T00:00:00.000Z"
   , loc = [14.0839053, -87.2750137]
-  }
+  } -}
 
 type       House = I
                  | II
@@ -201,23 +235,35 @@ type alias HoroscopeResponse =
 
 encodeHoroscopeRequest : HoroscopeRequest -> Encode.Value
 encodeHoroscopeRequest data =
+  let
+    getDob d = Maybe.withDefault "" d.dob
+    getLoc d = parseLoc <| Maybe.withDefault "" d.loc
+  in
   Encode.object
     [
-      ("dob", Encode.string data.dob)
-    , ("loc", Encode.list Encode.float data.loc)
+      ("dob", Encode.string (getDob data))
+    , ("loc", Encode.list Encode.float (getLoc data))
     ]
 
-getHoroscopeData : Cmd Msg
-getHoroscopeData =
-  Http.post
-    { url = "http://localhost:3030/api/horoscope"
-    , expect = Http.expectJson GotData horoscopeDecoder
-    , body = encodeHoroscopeRequest m |> Http.jsonBody
-    }
+getHoroscopeData : Model -> Cmd Msg
+getHoroscopeData model =
+  case model of
+-- TODO: actually check that all values are present before trying to encode!
+    BuildingRequest r ->
+      Http.post
+      { url = "http://localhost:3030/api/horoscope"
+      , expect = Http.expectJson GotData horoscopeDecoder
+      , body = encodeHoroscopeRequest r |> Http.jsonBody
+      }
+
+    _ ->
+      Cmd.none
+        
+  
 
 horoscopeDecoder : Decoder HoroscopeResponse
 horoscopeDecoder = 
-  map2 HoroscopeResponse
+  Decode.map2 HoroscopeResponse
     (field "cusps" <| houseCuspsDecoder)
     (field "planets" <| list planetPositionDecoder)
 
@@ -241,7 +287,7 @@ houseCuspsDecoder =
             "xii"  -> HouseCusp XII pos
             _      -> HouseCusp UnknownCusp pos
   in
-  keyValuePairs float |> map (List.map houseHelp)
+  keyValuePairs float |> Decode.map (List.map houseHelp)
   
 
 planetPositionDecoder : Decoder PlanetPosition
@@ -280,4 +326,4 @@ planetDecoder =
         "Chiron"   -> succeed Chiron
         _          -> succeed UnknownPlanet
   in
-  string |> andThen planetHelp
+  string |> Decode.andThen planetHelp
