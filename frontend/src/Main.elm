@@ -125,14 +125,13 @@ view model =
                 [ input [ Attrs.type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
                 , input [ Attrs.type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
                 , button [ Evts.onClick AskData ] [ Html.text "Enter data!" ]
-                , chart
                 ]
 
         Success req data ->
             div []
                 [ button [ Evts.onClick NewEntry ] [ Html.text "New Data" ]
                 , requestHeading req
-                , chart
+                , chart data
                 , astroDataTables data
                 ]
 
@@ -487,15 +486,17 @@ westernSigns =
   , {name = Pisces,      longitude = 330.0, element = Water}
   ]
 
-chart : Html Msg
-chart =
+chart : HoroscopeResponse -> Html Msg
+chart {houseCusps, planetaryPositions} =
   let
     width = 666    
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
     [ g [SvgAttrs.id "radix"] 
-        [ zodiac width ] 
+        [ zodiac width
+        , houses width houseCusps
+        ] 
     ]
 
 zodiac : Float -> Svg Msg
@@ -510,6 +511,28 @@ zodiac containerWidth =
     , g [SvgAttrs.id "signs"] (zodiacSigns containerCircle)
     ]
 
+houses : Float -> List HouseCusp -> Svg Msg
+houses containerWidth housesData =
+  let
+      center = containerWidth / 2
+      r      = containerWidth * 0.37
+      containerCircle = { centerX = center, centerY = center, radius = r}
+  in
+  g [SvgAttrs.id "housesCircle"]
+    [ housesCircle containerCircle
+    , g [SvgAttrs.id "houses"] (drawHouses containerCircle housesData)
+    ]
+
+housesCircle : Circle -> Svg Msg
+housesCircle {centerX, centerY, radius} =
+  circle [cx (String.fromFloat centerX), cy (String.fromFloat centerY), r (String.fromFloat radius), fill "none", stroke "#444", strokeWidth "1"] []  
+
+drawHouses : Circle -> List HouseCusp -> List (Svg Msg)
+drawHouses c d = List.map (drawHouse c) d
+
+drawHouse : Circle -> HouseCusp -> Svg Msg
+drawHouse container {house, cusp} =
+  Svg.path [d (drawLinePath container cusp (0.128*2.0)), fill "none", strokeWidth "2", stroke (Color.toCssString Color.black) ] []
 
 zodiacCircle : Circle -> Svg Msg
 zodiacCircle {centerX, centerY, radius} =
@@ -520,7 +543,7 @@ zodiacSigns c = List.map (zodiacSign c) westernSigns
 
 zodiacSign : Circle -> ZodiacSign -> Svg Msg
 zodiacSign container {name, longitude, element} =
-  Svg.path [d (buildSlicePath container longitude), fill (elementColor element), strokeWidth "0", stroke "none"]
+  Svg.path [d (buildSlicePath container 30.0 0.125 longitude), fill (elementColor element), strokeWidth "0", stroke "none"]
    []
 
 -- Helper functions for the crazy math
@@ -548,12 +571,12 @@ elementColor element =
         
 
 -- from: https://stackoverflow.com/a/43211655
-buildSlicePath : Circle -> Float -> String
-buildSlicePath containerCircle longitude =
+buildSlicePath : Circle -> Float -> Float -> Float -> String
+buildSlicePath containerCircle length spreadRatio longitude =
   let
-      endAngle = longitude + 30.0
+      endAngle = longitude + length
       startAngle = longitude
-      spread     = containerCircle.radius * 0.125
+      spread     = containerCircle.radius * spreadRatio
       innerCircle = {containerCircle | radius = containerCircle.radius - spread}
       innerStart = polarToCartesian innerCircle endAngle
       innerEnd   = polarToCartesian innerCircle startAngle
@@ -574,4 +597,17 @@ buildSlicePath containerCircle longitude =
   in
   String.join " " elements
   
-  
+drawLinePath : Circle -> Float -> Float -> String
+drawLinePath containerCircle longitude lineLength =
+  let
+      startAngle = longitude
+      spread     = containerCircle.radius * lineLength
+      innerCircle = {containerCircle | radius = containerCircle.radius - spread}
+      innerEnd   = polarToCartesian innerCircle startAngle
+      outerEnd   = polarToCartesian containerCircle startAngle
+      elements = 
+        [ "M", String.fromFloat outerEnd.x, String.fromFloat outerEnd.y
+        , "L", String.fromFloat innerEnd.x, String.fromFloat innerEnd.y
+        ]
+  in
+  String.join " " elements
