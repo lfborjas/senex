@@ -4,7 +4,15 @@ Uses Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinfo_e
 
 ## Development
 
-Been using VSCode with `Haskell Language Server` and `Haskell Language` as extensions; it's been quite alright except for [the weird memory leak in HIE](https://dimjasevic.net/marko/2018/08/15/haskell-ide-the-memory-hog-engine/) (!)
+Been using VSCode with `elm`, `Haskell Language Server` and `Haskell Language` as extensions; it's been quite alright except for [the weird memory leak in HIE](https://dimjasevic.net/marko/2018/08/15/haskell-ide-the-memory-hog-engine/) (!)
+
+To run the backend server, simply run `stack run`. Currently, it doesn't serve the Elm app: I'm using [`elm-live`](https://github.com/wking-io/elm-live) for live development, so I'm simply running both processes on separate terminals and visiting `localhost:8000` to see the Elm SPA.
+
+### Notes:
+
+* Consider packaging the C bindings, and adding the appropriate support in the `cabal` file.
+* Considered using [`servant-elm`](http://hackage.haskell.org/package/servant-elm), but ended up defining my JSON types and functions by hand.
+* Even though cabal auto-generates the `hs` files from `hsc` sources when building/linking, `VSCode` seems confounded about `hsc` files and one needs to run `stack build` by hand to get them to be compiled -- the `hie` process picks them up afterwards, it seems.
 
 ## Haskell bindings to the SwissEphemeris library
 
@@ -26,23 +34,15 @@ cc	 -c -g -Wall -fPIC  	   swephlib.c
 cc	 -c -g -Wall -fPIC  	   swecl.c     
 cc	 -c -g -Wall -fPIC  	   swehel.c     
 cc	 -shared -o libswe.so swedate.o swehouse.o swejpl.o swemmoon.o swemplan.o swepcalc.o sweph.o swepdate.o swephlib.o swecl.o swehel.o
+
 ➜  csrc git:(master) ✗ make libswe.a
 ar r libswe.a	swedate.o swehouse.o swejpl.o swemmoon.o swemplan.o swepcalc.o sweph.o swepdate.o swephlib.o swecl.o swehel.o
 ar: creating archive libswe.a
+
 ➜  csrc git:(master) ✗ make libswe.dylib
 
 ➜  csrc git:(master) ✗ cp libswe.* /usr/local/lib/
-
-## Gotta export the nonstandard location I'm putting things in:
-
-export LD_LIBRARY_PATH="/usr/local/lib"
 ```
-
-N.B. I _think_ that by adding the `extra-lib-dirs` setting we may not need that?
-
-### Compiling the `hsc` files
-
-Run `hsc2hs src/*.hsc` to produce actual Haskell files. Stack seems to happily ignore hsc files? Although maybe adding `SWE` and `Foreign.SWE` to the exposed modules may fix it?
 
 ## Using the C Bindings
 
@@ -51,6 +51,7 @@ Example main (based on https://www.astro.com/swisseph/swephprg.htm#_Toc19111155)
 ```haskell
 main :: IO
 main = do 
+  -- location of your ephemeris _folder_
   setEphemeridesPath "/Users/luis/code/senex/csrc/sweph_18"
   let time = julianDay 1989 1 6 0.0
   let coords = map (\p -> (p, (calculateCoordinates time p))) [Sun .. Chiron]
