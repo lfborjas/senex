@@ -1,9 +1,12 @@
 module Main exposing (Coordinates, HoroscopeRequest, HoroscopeResponse, House(..), HouseCusp, Model(..), Msg(..), Planet(..), PlanetPosition, astroDataTables, coordinateDecoder, defaultData, encodeHoroscopeRequest, getHoroscopeData, horoscopeDecoder, houseCuspsDecoder, houseRow, housesTable, init, main, planetDecoder, planetPositionDecoder, planetRow, planetsTable, requestHeading, subscriptions, update, view)
 
 import Browser
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
+import Html as Html exposing (..)
+import Svg as Svg exposing (..)
+import Html.Attributes as Attrs exposing (..)
+import Svg.Attributes as SvgAttrs exposing (..)
+import Html.Events as Evts exposing (..)
+import Svg.Events exposing (..)
 import Http
 import Json.Decode as Decode exposing (Decoder, andThen, field, float, keyValuePairs, list, map, map2, string, succeed)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
@@ -12,6 +15,7 @@ import List as List
 import Maybe as Maybe exposing (..)
 import Result as Result
 import String as String
+import Color exposing (Color)
 
 
 
@@ -109,24 +113,26 @@ view model =
     case model of
         Failure request ->
             div []
-                [ text "Unable to load data"
-                , button [ onClick NewEntry ] [ text "Try Again" ]
+                [ Html.text "Unable to load data"
+                , button [ Evts.onClick NewEntry ] [ Html.text "Try Again" ]
                 ]
 
         Loading ->
-            text "Loading..."
+            Html.text "Loading..."
 
         BuildingRequest r ->
             div []
-                [ input [ type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
-                , input [ type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
-                , button [ onClick AskData ] [ text "Enter data!" ]
+                [ input [ Attrs.type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
+                , input [ Attrs.type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
+                , button [ Evts.onClick AskData ] [ Html.text "Enter data!" ]
+                , chart
                 ]
 
         Success req data ->
             div []
-                [ button [ onClick NewEntry ] [ text "New Data" ]
+                [ button [ Evts.onClick NewEntry ] [ Html.text "New Data" ]
                 , requestHeading req
+                , chart
                 , astroDataTables data
                 ]
 
@@ -134,7 +140,7 @@ view model =
 requestHeading : HoroscopeRequest -> Html Msg
 requestHeading { dob, loc } =
     h2 []
-        [ text
+        [ Html.text
             ("Ephemerides for "
                 ++ Maybe.withDefault "" dob
                 ++ "--"
@@ -156,8 +162,8 @@ planetsTable positions =
     table []
         [ thead []
             [ tr []
-                [ th [] [ text "Planet" ]
-                , th [] [ text "Position (lat, long)" ]
+                [ th [] [ Html.text "Planet" ]
+                , th [] [ Html.text "Position (lat, long)" ]
                 ]
             ]
         , tbody []
@@ -168,16 +174,16 @@ planetsTable positions =
 planetRow : PlanetPosition -> Html Msg
 planetRow { planet, position } =
     tr []
-        [ td [] [ text <| Debug.toString planet ]
-        , td [] [ text <| "(" ++ Debug.toString position.lat ++ ", " ++ Debug.toString position.long ++ ")" ]
+        [ td [] [ Html.text <| Debug.toString planet ]
+        , td [] [ Html.text <| "(" ++ Debug.toString position.lat ++ ", " ++ Debug.toString position.long ++ ")" ]
         ]
 
 
 houseRow : HouseCusp -> Html Msg
 houseRow { house, cusp } =
     tr []
-        [ td [] [ text <| Debug.toString house ]
-        , td [] [ text <| Debug.toString cusp ]
+        [ td [] [ Html.text <| Debug.toString house ]
+        , td [] [ Html.text <| Debug.toString cusp ]
         ]
 
 
@@ -186,8 +192,8 @@ housesTable cusps =
     table []
         [ thead []
             [ tr []
-                [ th [] [ text "House" ]
-                , th [] [ text "Position" ]
+                [ th [] [ Html.text "House" ]
+                , th [] [ Html.text "Position" ]
                 ]
             ]
         , tbody []
@@ -236,7 +242,7 @@ type Planet
     | TrueNode
     | MeanApog
     | OscuApog
-    | Earth
+    | Earth_
     | Chiron
     | UnknownPlanet
 
@@ -424,7 +430,7 @@ planetDecoder =
                     succeed OscuApog
 
                 "Earth" ->
-                    succeed Earth
+                    succeed Earth_
 
                 "Chiron" ->
                     succeed Chiron
@@ -433,3 +439,133 @@ planetDecoder =
                     succeed UnknownPlanet
     in
     string |> Decode.andThen planetHelp
+
+
+-- | Chart drawing and associated types
+
+type ZodiacSignName
+  = Aries
+  | Taurus
+  | Gemini
+  | Cancer
+  | Leo
+  | Virgo
+  | Libra
+  | Scorpio
+  | Sagittarius
+  | Capricorn
+  | Aquarius
+  | Pisces
+
+type ClassicalElement
+  = Earth
+  | Air
+  | Fire
+  | Water
+
+-- see: https://en.wikipedia.org/wiki/Astrological_sign#Western_zodiac_signs
+type alias ZodiacSign = 
+  { name : ZodiacSignName
+  , longitude : Float
+  , element : ClassicalElement
+  }
+
+westernSigns : List ZodiacSign
+westernSigns =
+  [
+    {name = Aries,       longitude = 0.0, element = Fire}
+  , {name = Taurus,      longitude = 30.0, element = Earth}
+  , {name = Gemini,      longitude = 60.0, element = Air}
+  , {name = Cancer,      longitude = 90.0, element = Water}
+  , {name = Leo,         longitude = 120.0, element = Fire}
+  , {name = Virgo,       longitude = 150.0, element = Earth}
+  , {name = Libra,       longitude = 180.0, element = Air}
+  , {name = Scorpio,     longitude = 210.0, element = Water}
+  , {name = Sagittarius, longitude = 240.0, element = Fire}
+  , {name = Capricorn,   longitude = 270.0, element = Earth}
+  , {name = Aquarius,    longitude = 300.0, element = Air}
+  , {name = Pisces,      longitude = 330.0, element = Water}
+  ]
+
+chart : Html Msg
+chart =
+  let
+    width = 666    
+  in
+  svg
+    [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
+    [ g [SvgAttrs.id "radix"] 
+        [ zodiac width ] 
+    ]
+
+zodiac : Float -> Svg Msg
+zodiac containerWidth =
+  let
+    center = containerWidth / 2
+    r      = containerWidth * 0.42
+    containerCircle = { centerX = center, centerY = center, radius = r }
+  in
+  g [SvgAttrs.id "zodiac"]
+    [ zodiacCircle containerCircle
+    , g [SvgAttrs.id "signs"] (zodiacSigns containerCircle)
+    ]
+
+
+zodiacCircle : Circle -> Svg Msg
+zodiacCircle {centerX, centerY, radius} =
+  circle [cx (String.fromFloat centerX), cy (String.fromFloat centerY), r (String.fromFloat radius), fill "none", stroke "#333", strokeWidth "2"] []
+
+zodiacSigns : Circle -> List (Svg Msg)
+zodiacSigns c = List.map (zodiacSign c) westernSigns
+
+zodiacSign : Circle -> ZodiacSign -> Svg Msg
+zodiacSign container sign =
+  Svg.path [d (buildSignPath container sign), stroke (signStrokeColor sign), strokeWidth "10"]
+   []
+
+-- Helper functions for the crazy math
+type alias Circle = { centerX: Float, centerY: Float, radius : Float}
+type alias Angle = Float
+type alias Cartesian = { x: Float, y: Float}
+
+polarToCartesian : Circle -> Angle -> Cartesian
+polarToCartesian { centerX, centerY, radius } angle =
+  let
+      (x_, y_) = fromPolar (radius, degrees angle)
+  in
+  {x = centerX + x_, y = centerY + y_}
+
+signStrokeColor : ZodiacSign -> String
+signStrokeColor {name, longitude, element} =
+  let
+    color = case element of
+        Earth -> Color.darkGreen
+        Air   -> Color.yellow
+        Fire  -> Color.lightOrange
+        Water -> Color.lightBlue
+  in
+  Color.toCssString color
+        
+
+-- from: https://jsbin.com/kopisonewi/2/edit?html,js,output
+-- and: 
+buildSignPath : Circle -> ZodiacSign -> String
+buildSignPath containerCircle {name, longitude, element} =
+  let
+      endAngle = longitude + 30.0
+      startAngle = longitude
+      start = polarToCartesian containerCircle endAngle
+      end   = polarToCartesian containerCircle startAngle
+      largeArcFlag = 
+        if endAngle >= startAngle then
+          if (endAngle - startAngle <= 180.0) then "0" else "1"
+        else
+          if (endAngle + 360.0) - startAngle <= 180.0 then "0" else "1"
+      elements = 
+        [ "M", String.fromFloat start.x, String.fromFloat start.y
+        , "A", String.fromFloat containerCircle.radius, String.fromFloat containerCircle.radius, "0", largeArcFlag, "0", String.fromFloat end.x, String.fromFloat end.y
+        ]
+  in
+  String.join " " elements
+  
+  
