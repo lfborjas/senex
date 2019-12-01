@@ -37,10 +37,17 @@ type Model = BuildingRequest HoroscopeRequest
            | Failure
            | Success HoroscopeResponse
 
+defaultData : HoroscopeRequest
+defaultData = 
+  { dob = Just "1989-01-06T00:00:00.000Z"
+  , loc = Just "14.0839053, -87.2750137"
+  }
+
 init : () -> (Model, Cmd Msg)
-init _ = (BuildingRequest {dob = Just "1989-01-06T00:00:00.000Z", loc = Just "14.0839053, -87.2750137"}, Cmd.none)
+init _ = (BuildingRequest defaultData, Cmd.none)
 
 type Msg = AskData 
+         | NewEntry
          | GotDob String
          | GotLoc String
          | GotData (Result Http.Error HoroscopeResponse)
@@ -68,6 +75,9 @@ update msg model =
       
           _ ->
             (BuildingRequest {dob = Nothing, loc = Just loc}, Cmd.none)
+
+    NewEntry ->
+      (BuildingRequest defaultData, Cmd.none)
  
     AskData -> 
       (Loading, getHoroscopeData model)
@@ -90,7 +100,7 @@ view model =
       Failure ->
         div []
           [ text "Unable to load data"
-          , button [ onClick AskData ] [ text "Try Again"]
+          , button [ onClick NewEntry ] [ text "Try Again"]
           ]
         
       Loading ->
@@ -104,7 +114,10 @@ view model =
           ]       
 
       Success data ->
-        astroDataTables data
+        div []
+          [ button [ onClick NewEntry ] [text "New Data"]
+          , astroDataTables data
+          ]
 
 astroDataTables : HoroscopeResponse -> Html Msg
 astroDataTables {houseCusps, planetaryPositions} =
