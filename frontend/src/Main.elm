@@ -4,9 +4,9 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Encode as Encode
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder, succeed, andThen, map, map2, field, list, float, string, keyValuePairs)
 import Json.Decode.Pipeline exposing (required, optional, hardcoded)
-
+import List as List
 
 main =
   Browser.element
@@ -59,7 +59,7 @@ view model =
       NotStarted ->
         div []
           [ 
-            button [ onClick AskData ] [ text "Get Data" ]
+            button [ onClick AskData ] [ text "Get Data for 1989/1/6" ]
           ]
       Success _ ->
         pre [] [ text "We got some data!" ]
@@ -92,6 +92,7 @@ type       House = I
                  | X
                  | XI
                  | XII
+                 | UnknownCusp
 
 type       Planet = Sun
                   | Moon
@@ -109,6 +110,7 @@ type       Planet = Sun
                   | OscuApog
                   | Earth
                   | Chiron
+                  | UnknownPlanet
 
 type alias HouseCusp =
   {
@@ -153,12 +155,69 @@ getHoroscopeData =
     , body = encodeHoroscopeRequest m |> Http.jsonBody
     }
 
-horoscopeDecoder : Decode.Decoder HoroscopeResponse
+horoscopeDecoder : Decoder HoroscopeResponse
 horoscopeDecoder = 
-  Decode.succeed HoroscopeResponse
-    |> required "cusps" (Decode.keyValuePairs Decode.float)
-    |> required "planets" (Decode.keyValuePairs Decode.float)
+  map2 HoroscopeResponse
+    (field "cusps" <| houseCuspsDecoder)
+    (field "planets" <| list planetPositionDecoder)
 
-{- cuspsDecoder : Decode.Decoder (List HouseCusp)
-cuspsDecoder =
-  Decode. -}
+houseCuspsDecoder : Decoder (List HouseCusp)
+houseCuspsDecoder =
+  let
+      houseHelp : (String, Float) -> HouseCusp
+      houseHelp (ord, pos) =
+        case ord of
+            "i"    -> HouseCusp I pos
+            "ii"   -> HouseCusp II pos
+            "iii"  -> HouseCusp III pos
+            "iv"   -> HouseCusp IV pos
+            "v"    -> HouseCusp V pos
+            "vi"   -> HouseCusp VI pos
+            "vii"  -> HouseCusp VII pos
+            "viii" -> HouseCusp VIII pos
+            "ix"   -> HouseCusp IX pos
+            "x"    -> HouseCusp X pos
+            "xi"   -> HouseCusp XI pos
+            "xii"  -> HouseCusp XII pos
+            _      -> HouseCusp UnknownCusp pos
+  in
+  keyValuePairs float |> map (List.map houseHelp)
+  
+
+planetPositionDecoder : Decoder PlanetPosition
+planetPositionDecoder =
+  succeed PlanetPosition
+    |> required "planet" planetDecoder
+    |> required "coords" coordinateDecoder
+
+coordinateDecoder : Decoder Coordinates
+coordinateDecoder =
+  succeed Coordinates
+    |> required "lat" float
+    |> required "long" float
+
+planetDecoder : Decoder Planet
+planetDecoder =
+  let 
+    planetHelp : String -> Decoder Planet
+    planetHelp p = 
+      case p of
+        "Sun"      -> succeed Sun
+        "Moon"     -> succeed Moon
+        "Mercury"  -> succeed Mercury
+        "Venus"    -> succeed Venus
+        "Mars"     -> succeed Mars
+        "Jupiter"  -> succeed Jupiter
+        "Saturn"   -> succeed Saturn
+        "Uranus"   -> succeed Uranus
+        "Neptune"  -> succeed Neptune
+        "Pluto"    -> succeed Pluto
+        "MeanNode" -> succeed MeanNode
+        "TrueNode" -> succeed TrueNode
+        "MeanApog" -> succeed MeanApog
+        "OscuApog" -> succeed OscuApog
+        "Earth"    -> succeed Earth
+        "Chiron"   -> succeed Chiron
+        _          -> succeed UnknownPlanet
+  in
+  string |> andThen planetHelp
