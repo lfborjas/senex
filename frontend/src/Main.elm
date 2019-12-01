@@ -34,8 +34,8 @@ main =
 
 type Model = BuildingRequest HoroscopeRequest
            | Loading
-           | Failure
-           | Success HoroscopeResponse
+           | Failure HoroscopeRequest
+           | Success HoroscopeRequest HoroscopeResponse
 
 defaultData : HoroscopeRequest
 defaultData = 
@@ -50,7 +50,7 @@ type Msg = AskData
          | NewEntry
          | GotDob String
          | GotLoc String
-         | GotData (Result Http.Error HoroscopeResponse)
+         | GotData HoroscopeRequest (Result Http.Error HoroscopeResponse)
 
 parseLoc : String -> List Float
 parseLoc v =
@@ -83,12 +83,12 @@ update msg model =
       (Loading, getHoroscopeData model)
       -- TODO: validate before submitting!
 
-    GotData result ->
+    GotData req result ->
       case result of
         Ok r ->
-          (Success r, Cmd.none)
+          (Success req r, Cmd.none)
         Err _ ->
-          (Failure, Cmd.none)
+          (Failure req, Cmd.none)
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -97,7 +97,7 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     case model of
-      Failure ->
+      Failure request ->
         div []
           [ text "Unable to load data"
           , button [ onClick NewEntry ] [ text "Try Again"]
@@ -113,11 +113,22 @@ view model =
           , button [ onClick AskData ] [ text "Enter data!" ]
           ]       
 
-      Success data ->
+      Success req data ->
         div []
           [ button [ onClick NewEntry ] [text "New Data"]
+          , requestHeading req
           , astroDataTables data
           ]
+
+requestHeading : HoroscopeRequest -> Html Msg
+requestHeading {dob, loc} =
+  h2 []
+    [
+      text ("Ephemerides for " 
+        ++ (Maybe.withDefault "" dob)
+        ++ "--"
+        ++ (Maybe.withDefault "" loc))
+    ]
 
 astroDataTables : HoroscopeResponse -> Html Msg
 astroDataTables {houseCusps, planetaryPositions} =
@@ -252,7 +263,7 @@ getHoroscopeData model =
     BuildingRequest r ->
       Http.post
       { url = "http://localhost:3030/api/horoscope"
-      , expect = Http.expectJson GotData horoscopeDecoder
+      , expect = Http.expectJson (GotData r) horoscopeDecoder
       , body = encodeHoroscopeRequest r |> Http.jsonBody
       }
 
