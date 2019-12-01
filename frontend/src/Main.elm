@@ -532,7 +532,10 @@ drawHouses c d = List.map (drawHouse c) d
 
 drawHouse : Circle -> HouseCusp -> Svg Msg
 drawHouse container {house, cusp} =
-  Svg.path [d (drawLinePath container cusp (0.128*2.0)), fill "none", strokeWidth "2", stroke (Color.toCssString Color.black) ] []
+  g [SvgAttrs.id (Debug.toString house)] 
+    [ Svg.path [d (drawLinePath container cusp (0.128*2.0)), fill "none", strokeWidth "2", stroke (Color.toCssString Color.black) ] []
+    , drawTextAtDegree container (Debug.toString house) cusp
+    ]
 
 zodiacCircle : Circle -> Svg Msg
 zodiacCircle {centerX, centerY, radius} =
@@ -611,3 +614,28 @@ drawLinePath containerCircle longitude lineLength =
         ]
   in
   String.join " " elements
+
+drawTextAtDegree : Circle -> String -> Float -> Svg Msg
+drawTextAtDegree containerCircle text longitude =
+  let
+    spread = containerCircle.radius * (0.128*1.5)
+    loc = polarToCartesian {containerCircle | radius = containerCircle.radius - spread} (longitude+8.5)
+  in
+    Svg.text_ [SvgAttrs.x (String.fromFloat loc.x), SvgAttrs.y (String.fromFloat loc.y), SvgAttrs.style "font: italic 15px serif; fill: #333;"]
+      [ Svg.text text ]
+  
+
+{- References:
+https://cdn.rawgit.com/Kibo/AstroChart/master/project/examples/radix/radix_2016_11_15.html
+https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Basic_Transformations
+https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Texts
+https://en.wikipedia.org/wiki/Astrological_sign
+https://en.wikipedia.org/wiki/Horoscope#Houses_2
+In the end, we'll just need to rotate things relative to the Ascendant:
+https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
+https://github.com/avh4/elm-color/tree/1.0.0
+
+Local references:
+file:///Users/luis/Downloads/swe_unix_src_2.08/doc/swisseph.htm#_Toc502931312
+file:///Users/luis/Downloads/swe_unix_src_2.08/doc/swephprg.htm#_Toc476664303
+-}
