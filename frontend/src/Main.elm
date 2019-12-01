@@ -52,12 +52,6 @@ type Msg = AskData
          | GotLoc String
          | GotData HoroscopeRequest (Result Http.Error HoroscopeResponse)
 
-parseLoc : String -> List Float
-parseLoc v =
-  String.split "," v
-    |> List.map String.toFloat
-    |> List.map (Maybe.withDefault 0)
-
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
@@ -248,6 +242,11 @@ type alias HoroscopeResponse =
 encodeHoroscopeRequest : HoroscopeRequest -> Encode.Value
 encodeHoroscopeRequest data =
   let
+    parseLoc : String -> List Float
+    parseLoc v =
+      String.split "," v
+        |> List.map String.toFloat
+        |> List.map (Maybe.withDefault 0)
     getDob d = Maybe.withDefault "" d.dob
     getLoc d = parseLoc <| Maybe.withDefault "" d.loc
   in
