@@ -32,14 +32,13 @@ main =
     , view = view
     }
 
-type Model = NotStarted
-           | BuildingRequest HoroscopeRequest
+type Model = BuildingRequest HoroscopeRequest
            | Loading
            | Failure
            | Success HoroscopeResponse
 
 init : () -> (Model, Cmd Msg)
-init _ = (NotStarted, Cmd.none)
+init _ = (BuildingRequest {dob = Just "1989-01-06T00:00:00.000Z", loc = Just "14.0839053, -87.2750137"}, Cmd.none)
 
 type Msg = AskData 
          | GotDob String
@@ -72,6 +71,7 @@ update msg model =
  
     AskData -> 
       (Loading, getHoroscopeData model)
+      -- TODO: validate before submitting!
 
     GotData result ->
       case result of
@@ -95,18 +95,14 @@ view model =
         
       Loading ->
         text "Loading..."
-      NotStarted ->
-        div []
-          [ input [type_ "text", placeholder "Date of Birth", onInput GotDob ] []
-          , input [type_ "text", placeholder "Location (lat, long)", onInput GotLoc] []
-          , button [ onClick AskData ] [ text "Enter data!" ]
-          ]
+
       BuildingRequest r ->
         div []
           [ input [type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
           , input [type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc)] []
           , button [ onClick AskData ] [ text "Enter data!" ]
           ]       
+
       Success data ->
         astroDataTables data
 
@@ -163,16 +159,8 @@ housesTable cusps =
 type alias HoroscopeRequest = 
   {
     dob : Maybe String
-  --, loc : (Float, Float)
   , loc : Maybe String
   }
-
-{- m : HoroscopeRequest
-m =
-  {
-    dob = "1989-01-06T00:00:00.000Z"
-  , loc = [14.0839053, -87.2750137]
-  } -}
 
 type       House = I
                  | II
@@ -248,7 +236,6 @@ encodeHoroscopeRequest data =
 getHoroscopeData : Model -> Cmd Msg
 getHoroscopeData model =
   case model of
--- TODO: actually check that all values are present before trying to encode!
     BuildingRequest r ->
       Http.post
       { url = "http://localhost:3030/api/horoscope"
