@@ -51,7 +51,7 @@ type Model
 defaultData : HoroscopeRequest
 defaultData =
     { dob = Just "1989-01-06T00:00:00.000Z"
-    , loc = Just "14.0839053,-87.2750137"
+    , loc = Just "14.0839053,87.2750137"
     }
 
 
@@ -521,7 +521,7 @@ houses containerWidth housesData =
   g [SvgAttrs.id "housesCircle"]
     [ housesCircle containerCircle
     , g [SvgAttrs.id "houses"] (drawHouses  containerCircle housesData)
-    , g [SvgAttrs.id "ruler"]  (drawDegrees containerCircle (List.range 0 360))
+    --, g [SvgAttrs.id "ruler"]  (drawDegrees containerCircle (List.range 0 360))
     ]
 
 housesCircle : Circle -> Svg Msg
@@ -578,7 +578,7 @@ elementColor element =
     color = case element of
         Earth -> Color.darkGreen
         Air   -> Color.yellow
-        Fire  -> Color.lightOrange
+        Fire  -> Color.lightRed
         Water -> Color.lightBlue
   in
   Color.toCssString color
