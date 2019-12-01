@@ -61,8 +61,56 @@ view model =
           [ 
             button [ onClick AskData ] [ text "Get Data for 1989/1/6" ]
           ]
-      Success _ ->
-        pre [] [ text "We got some data!" ]
+      Success data ->
+        astroDataTables data
+
+astroDataTables : HoroscopeResponse -> Html Msg
+astroDataTables {houseCusps, planetaryPositions} =
+  div []
+    [
+      housesTable  houseCusps
+    , planetsTable planetaryPositions
+    ]
+
+planetsTable : List PlanetPosition -> Html Msg
+planetsTable positions =
+  table []
+    [thead []
+        [tr [] 
+          [ th [] [text "Planet"]
+          , th [] [text "Position (lat, long)"]
+          ]
+        ]
+    , tbody []
+        (List.map planetRow positions)
+    ]
+
+planetRow : PlanetPosition -> Html Msg
+planetRow {planet, position} =
+  tr []
+    [ td [] [text <| Debug.toString planet]
+    , td [] [text <| "(" ++ Debug.toString position.lat ++ ", " ++ Debug.toString position.long ++ ")"]
+    ]
+
+houseRow : HouseCusp -> Html Msg
+houseRow {house, cusp} =
+  tr []
+    [ td [] [text <| Debug.toString house]
+    , td [] [text <| Debug.toString cusp]
+    ]
+
+housesTable : List HouseCusp -> Html Msg
+housesTable cusps =
+  table []
+    [thead []
+        [tr [] 
+          [ th [] [text "House"]
+          , th [] [text "Position"]
+          ]
+        ]
+    , tbody []
+        (List.map houseRow cusps)
+    ]
 
 -- Server Interactions
 
