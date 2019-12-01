@@ -520,7 +520,7 @@ zodiacSigns c = List.map (zodiacSign c) westernSigns
 
 zodiacSign : Circle -> ZodiacSign -> Svg Msg
 zodiacSign container sign =
-  Svg.path [d (buildSignPath container sign), stroke (signStrokeColor sign), strokeWidth "10"]
+  Svg.path [d (buildSignPath container sign), fill (signColor sign), strokeWidth "0", stroke "none"]
    []
 
 -- Helper functions for the crazy math
@@ -535,8 +535,8 @@ polarToCartesian { centerX, centerY, radius } angle =
   in
   {x = centerX + x_, y = centerY + y_}
 
-signStrokeColor : ZodiacSign -> String
-signStrokeColor {name, longitude, element} =
+signColor : ZodiacSign -> String
+signColor {name, longitude, element} =
   let
     color = case element of
         Earth -> Color.darkGreen
@@ -547,23 +547,29 @@ signStrokeColor {name, longitude, element} =
   Color.toCssString color
         
 
--- from: https://jsbin.com/kopisonewi/2/edit?html,js,output
--- and: 
+-- from: https://stackoverflow.com/a/43211655
 buildSignPath : Circle -> ZodiacSign -> String
 buildSignPath containerCircle {name, longitude, element} =
   let
       endAngle = longitude + 30.0
       startAngle = longitude
-      start = polarToCartesian containerCircle endAngle
-      end   = polarToCartesian containerCircle startAngle
+      spread     = 32 -- TODO: calculate from radius!
+      innerCircle = {containerCircle | radius = containerCircle.radius - spread}
+      innerStart = polarToCartesian innerCircle endAngle
+      innerEnd   = polarToCartesian innerCircle startAngle
+      outerStart = polarToCartesian containerCircle endAngle
+      outerEnd   = polarToCartesian containerCircle startAngle
       largeArcFlag = 
         if endAngle >= startAngle then
           if (endAngle - startAngle <= 180.0) then "0" else "1"
         else
           if (endAngle + 360.0) - startAngle <= 180.0 then "0" else "1"
       elements = 
-        [ "M", String.fromFloat start.x, String.fromFloat start.y
-        , "A", String.fromFloat containerCircle.radius, String.fromFloat containerCircle.radius, "0", largeArcFlag, "0", String.fromFloat end.x, String.fromFloat end.y
+        [ "M", String.fromFloat outerStart.x, String.fromFloat outerStart.y
+        , "A", String.fromFloat containerCircle.radius, String.fromFloat containerCircle.radius, "0", largeArcFlag, "0", String.fromFloat outerEnd.x, String.fromFloat outerEnd.y
+        , "L", String.fromFloat innerEnd.x, String.fromFloat innerEnd.y
+        , "A", String.fromFloat innerCircle.radius, String.fromFloat innerCircle.radius, "0", largeArcFlag, "1", String.fromFloat innerStart.x, String.fromFloat innerStart.y
+        , "L", String.fromFloat outerStart.x, String.fromFloat outerStart.y, "Z"
         ]
   in
   String.join " " elements
