@@ -494,8 +494,9 @@ chart {houseCusps, planetaryPositions} =
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
     [ g [SvgAttrs.id "radix"] 
-        [ zodiac width
-        , houses width houseCusps
+        [ zodiac  width
+        , houses  width houseCusps
+        , planets width planetaryPositions
         ] 
     ]
 
@@ -524,9 +525,23 @@ houses containerWidth housesData =
     --, g [SvgAttrs.id "ruler"]  (drawDegrees containerCircle (List.range 0 360))
     ]
 
+planets : Float -> List PlanetPosition -> Svg Msg
+planets containerWidth planetsData =
+  let
+      center = containerWidth / 2
+      r      = containerWidth * 0.42
+      containerCircle = { centerX = center, centerY = center, radius = r}
+  in
+  g [SvgAttrs.id "housesCircle"]
+    [ g [SvgAttrs.id "houses"] (drawPlanets containerCircle planetsData)
+    ]
+
 housesCircle : Circle -> Svg Msg
 housesCircle {centerX, centerY, radius} =
   circle [cx (String.fromFloat centerX), cy (String.fromFloat centerY), r (String.fromFloat radius), fill "none", stroke "#444", strokeWidth "1"] []  
+
+drawPlanets : Circle -> List PlanetPosition -> List (Svg Msg)
+drawPlanets c d = List.map (drawPlanet c) d
 
 drawHouses : Circle -> List HouseCusp -> List (Svg Msg)
 drawHouses c d = List.map (drawHouse c) d
@@ -548,6 +563,10 @@ drawHouse container {house, cusp} =
     , drawTextAtDegree container (Debug.toString house)  "font: italic 15px serif; fill: #333;" -(cusp+8.5)
     ]
 
+drawPlanet container {planet, position} =
+  g []
+    [ drawTextAtDegree container (planetText planet) "font: 15px sans-serif; fill: #666;" -position.long ]
+
 zodiacCircle : Circle -> Svg Msg
 zodiacCircle {centerX, centerY, radius} =
   circle [cx (String.fromFloat centerX), cy (String.fromFloat centerY), r (String.fromFloat radius), fill "none", stroke "#333", strokeWidth "2"] []
@@ -559,6 +578,23 @@ zodiacSign : Circle -> ZodiacSign -> Svg Msg
 zodiacSign container {name, longitude, element} =
   Svg.path [d (buildSlicePath container 30.0 0.125 (-longitude)), fill (elementColor element), strokeWidth "0", stroke "none"]
    []
+
+planetText : Planet -> String
+planetText p =
+  case p of
+      Sun -> "☉"
+      Moon -> "☽"
+      Mercury -> "☿"
+      Venus -> "♀︎"
+      Earth_ -> ""
+      Mars -> "♂︎"
+      Jupiter -> "♃"
+      Saturn -> "♄"
+      Uranus -> "♅"
+      Neptune -> "♆"
+      Pluto -> "♇"
+      _ -> ""
+
 
 -- Helper functions for the crazy math
 type alias Circle = { centerX: Float, centerY: Float, radius : Float}
