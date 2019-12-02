@@ -560,7 +560,7 @@ drawHouse : Circle -> HouseCusp -> Svg Msg
 drawHouse container {house, cusp} =
   g [SvgAttrs.id (Debug.toString house)] 
     [ Svg.path [d (drawLinePath container -cusp (0.128*2.0)), fill "none", strokeWidth "2", stroke (Color.toCssString Color.black) ] []
-    , drawTextAtDegree container (Debug.toString house)  "font: italic 15px serif; fill: #333;" -(cusp+8.5)
+    , drawTextAtDegree container (houseText house)  "font: italic 15px serif; fill: #333;" -(cusp+8.5)
     ]
 
 drawPlanet container {planet, position} =
@@ -595,6 +595,15 @@ planetText p =
       Pluto -> "♇"
       _ -> ""
 
+houseText : House -> String
+houseText h =
+  case h of
+      I -> "ASC"
+      IV -> "IC"
+      VII -> "DSC"
+      X -> "MC"
+      _ -> Debug.toString h
+          
 
 -- Helper functions for the crazy math
 type alias Circle = { centerX: Float, centerY: Float, radius : Float}
