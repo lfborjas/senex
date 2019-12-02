@@ -1,6 +1,12 @@
 # Senex
 
-Uses Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinfo_e.htm) C library in Haskell, exposing it as a Module and then using it for a Servant-based API.
+Uses Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinfo_e.htm) C library in Haskell, exposing it as a Module and then using it for a Servant-based API that powers a tiny Elm SPA, which renders a Placidus chart in SVG.
+
+## Progress as of 12/1/2019
+
+![image](https://user-images.githubusercontent.com/82133/69923431-cdcfdb00-1472-11ea-9583-f876bbfe1a6b.png)
+
+
 
 ## Development
 
