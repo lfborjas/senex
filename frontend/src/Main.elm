@@ -126,8 +126,6 @@ view model =
                 , input [ Attrs.type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
                 , button [ Evts.onClick AskData ] [ Html.text "Enter data!" ]
                 , br [] []
-                , svg   [ SvgAttrs.width "100", SvgAttrs.height "500"]
-                    (List.indexedMap signGlyph westernSigns)
                 ]
 
         Success req data ->
@@ -137,28 +135,6 @@ view model =
                 , chart data
                 , astroDataTables data
                 ]
-
-signGlyph : Int -> ZodiacSign -> Svg Msg
-signGlyph i {name, longitude, element} =
-  let 
-    svgName = 
-      case name of
-        Aries -> "Aries.svg#svg602"
-        Taurus -> "Taurus.svg#svg614"
-        Gemini -> "Gemini.svg#svg620"
-        Cancer -> "Cancer.svg#svg626"
-        Leo -> "Leo.svg#svg632"
-        Virgo -> "Virgo.svg#svg638"
-        Libra -> "Libra.svg#svg644"
-        Scorpio -> "Scorpio.svg#svg650"
-        Sagittarius -> "Sagittarius.svg#svg656"
-        Capricorn -> "Capricorn.svg#svg1"
-        Aquarius -> "Aquarius.svg#svg668"
-        Pisces -> "Pisces.svg#svg674"
-    svgPath = "/assets/img/" ++ svgName
-  in
-  Svg.use [SvgAttrs.xlinkHref svgPath, SvgAttrs.width "20", SvgAttrs.height "20", SvgAttrs.x "10", SvgAttrs.y (String.fromInt (10*(i+2)))] []
-          
 
 requestHeading : HoroscopeRequest -> Html Msg
 requestHeading { dob, loc } =
@@ -599,9 +575,14 @@ zodiacSigns : Circle -> List (Svg Msg)
 zodiacSigns c = List.map (zodiacSign c) westernSigns
 
 zodiacSign : Circle -> ZodiacSign -> Svg Msg
-zodiacSign container {name, longitude, element} =
-  Svg.path [d (buildSlicePath container 30.0 0.125 (-longitude)), fill (elementColor element), strokeWidth "0", stroke "none"]
-   []
+zodiacSign container sign =
+  g []
+   [ 
+      Svg.path [d (buildSlicePath container 30.0 0.125 (-sign.longitude)), fill (elementColor sign.element), strokeWidth "0", stroke "none"] []
+    , signGlyph 
+        { container | radius = container.radius - 22.0, centerX = container.centerX-9.0, centerY = container.centerY-9.0 }
+        { sign | longitude = -(sign.longitude + 15.0) }
+   ]
 
 planetText : Planet -> String
 planetText p =
@@ -703,7 +684,35 @@ drawTextAtDegree containerCircle text style longitude =
   in
     Svg.text_ [SvgAttrs.x (String.fromFloat loc.x), SvgAttrs.y (String.fromFloat loc.y), SvgAttrs.style style]
       [ Svg.text text ]
-  
+
+signGlyph : Circle -> ZodiacSign -> Svg Msg
+signGlyph  container {name, longitude, element} =
+  let
+    loc = polarToCartesian container longitude
+    svgName = 
+      case name of
+        Aries -> "Aries.svg#svg602"
+        Taurus -> "Taurus.svg#svg614"
+        Gemini -> "Gemini.svg#svg620"
+        Cancer -> "Cancer.svg#svg626"
+        Leo -> "Leo.svg#svg632"
+        Virgo -> "Virgo.svg#svg638"
+        Libra -> "Libra.svg#svg644"
+        Scorpio -> "Scorpio.svg#svg650"
+        Sagittarius -> "Sagittarius.svg#svg656"
+        Capricorn -> "Capricorn.svg#svg1"
+        Aquarius -> "Aquarius.svg#svg668"
+        Pisces -> "Pisces.svg#svg674"
+    svgPath = "/assets/img/" ++ svgName
+  in
+  Svg.use 
+    [ SvgAttrs.xlinkHref svgPath
+    , SvgAttrs.width "20"
+    , SvgAttrs.height "20"
+    , SvgAttrs.x (String.fromFloat loc.x)
+    , SvgAttrs.y (String.fromFloat loc.y)
+    ]
+    []
 
 {- References:
 https://cdn.rawgit.com/Kibo/AstroChart/master/project/examples/radix/radix_2016_11_15.html
