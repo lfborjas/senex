@@ -50,7 +50,7 @@ type Model
 
 defaultData : HoroscopeRequest
 defaultData =
-    { dob = Just "1989-01-06T00:00:00.000Z"
+    { dob = Just "1989-01-06T06:00:00.000Z"
     , loc = Just "14.0839053,-87.2750137"
     }
 
