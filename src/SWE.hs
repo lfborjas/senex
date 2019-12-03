@@ -117,7 +117,7 @@ calculationOptions :: [CalcFlag] -> CalcFlag
 calculationOptions = CalcFlag . foldr ((.|.) . unCalcFlag) 0
 
 basicCoords :: (Double, Double) -> Coordinates
-basicCoords (latitude, longitude) = Coords latitude longitude 0 0 0 0
+basicCoords (latitude, longitude) = Coords longitude latitude 0 0 0 0
 
 setEphemeridesPath :: S.ByteString -> IO ()
 setEphemeridesPath path =
