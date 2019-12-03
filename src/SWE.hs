@@ -41,8 +41,8 @@ data HouseSystem = Placidus
 
 data Coordinates = Coords
   {
-    long :: Double
-  , lat :: Double
+    lat :: Double
+  , long :: Double
   , distance :: Double
   , longSpeed :: Double
   , latSpeed :: Double
@@ -92,7 +92,10 @@ toHouseSystemFlag WholeSign     = ord 'W'
 
 -- TODO: these fromList fns could be captured in a typeclass...
 fromList :: [Double] -> Coordinates
-fromList (a : b : c : d : e : f : _) = Coords a b c d e f
+-- N.B. note that for some reason the SWE guys really like long,lat coordinates
+-- though only for this one function: https://www.astro.com/swisseph/swephprg.htm#_Toc19111235
+-- so we need to flip them on the way out of the C code.
+fromList (sLong : sLat : c : d : e : f : _) = Coords sLat sLong c d e f
 fromList _                           = error "Invalid coordinate array"
 
 fromCuspsList :: [Double] -> HouseCusps
@@ -117,7 +120,7 @@ calculationOptions :: [CalcFlag] -> CalcFlag
 calculationOptions = CalcFlag . foldr ((.|.) . unCalcFlag) 0
 
 basicCoords :: (Double, Double) -> Coordinates
-basicCoords (latitude, longitude) = Coords longitude latitude 0 0 0 0
+basicCoords (latitude, longitude) = Coords latitude longitude 0 0 0 0
 
 setEphemeridesPath :: S.ByteString -> IO ()
 setEphemeridesPath path =
