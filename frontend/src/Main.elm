@@ -125,6 +125,9 @@ view model =
                 [ input [ Attrs.type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
                 , input [ Attrs.type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
                 , button [ Evts.onClick AskData ] [ Html.text "Enter data!" ]
+                , br [] []
+                , svg   [ SvgAttrs.width "100", SvgAttrs.height "500"]
+                    (List.indexedMap signGlyph westernSigns)
                 ]
 
         Success req data ->
@@ -135,6 +138,27 @@ view model =
                 , astroDataTables data
                 ]
 
+signGlyph : Int -> ZodiacSign -> Svg Msg
+signGlyph i {name, longitude, element} =
+  let 
+    svgName = 
+      case name of
+        Aries -> "Aries.svg#svg602"
+        Taurus -> "Taurus.svg#svg614"
+        Gemini -> "Gemini.svg#svg620"
+        Cancer -> "Cancer.svg#svg626"
+        Leo -> "Leo.svg#svg632"
+        Virgo -> "Virgo.svg#svg638"
+        Libra -> "Libra.svg#svg644"
+        Scorpio -> "Scorpio.svg#svg650"
+        Sagittarius -> "Sagittarius.svg#svg656"
+        Capricorn -> "Capricorn.svg#svg1"
+        Aquarius -> "Aquarius.svg#svg668"
+        Pisces -> "Pisces.svg#svg674"
+    svgPath = "/assets/img/" ++ svgName
+  in
+  Svg.use [SvgAttrs.xlinkHref svgPath, SvgAttrs.width "20", SvgAttrs.height "20", SvgAttrs.x "10", SvgAttrs.y (String.fromInt (10*(i+2)))] []
+          
 
 requestHeading : HoroscopeRequest -> Html Msg
 requestHeading { dob, loc } =
@@ -694,4 +718,7 @@ https://github.com/avh4/elm-color/tree/1.0.0
 Local references:
 file:///Users/luis/Downloads/swe_unix_src_2.08/doc/swisseph.htm#_Toc502931312
 file:///Users/luis/Downloads/swe_unix_src_2.08/doc/swephprg.htm#_Toc476664303
+
+All external SVG files are from the public domain, linked here:
+https://en.wikipedia.org/wiki/Astrological_symbols#Miscellaneous_symbols
 -}
