@@ -493,7 +493,7 @@ chart {houseCusps, planetaryPositions} =
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
-    [ g [SvgAttrs.id "radix", SvgAttrs.transform "rotate(18, 333, 333)"] 
+    [ g [SvgAttrs.id "radix"]
         [ zodiac  width
         , houses  width houseCusps
         , planets width planetaryPositions
