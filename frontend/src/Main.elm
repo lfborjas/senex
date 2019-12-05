@@ -489,11 +489,11 @@ westernSigns =
 chart : HoroscopeResponse -> Html Msg
 chart {houseCusps, planetaryPositions} =
   let
-    width = 666    
+    width = 666
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
-    [ g [SvgAttrs.id "radix"] 
+    [ g [SvgAttrs.id "radix", SvgAttrs.transform "rotate(18, 333, 333)"] 
         [ zodiac  width
         , houses  width houseCusps
         , planets width planetaryPositions
@@ -580,7 +580,7 @@ zodiacSign container sign =
    [ 
       Svg.path [d (buildSlicePath container 30.0 0.125 (-sign.longitude)), fill (elementColor sign.element), strokeWidth "0", stroke "none"] []
     , signGlyph 
-        { container | radius = container.radius - 22.0, centerX = container.centerX-9.0, centerY = container.centerY-9.0 }
+        container
         { sign | longitude = -(sign.longitude + 15.0) }
    ]
 
@@ -688,7 +688,9 @@ drawTextAtDegree containerCircle text style longitude =
 signGlyph : Circle -> ZodiacSign -> Svg Msg
 signGlyph  container {name, longitude, element} =
   let
-    loc = polarToCartesian container longitude
+    inner = { container | radius = container.radius - 18.0 }
+    loc = polarToCartesian inner longitude
+    size = 20.0
     svgName = 
       case name of
         Aries -> "Aries.svg#svg602"
@@ -707,10 +709,10 @@ signGlyph  container {name, longitude, element} =
   in
   Svg.use 
     [ SvgAttrs.xlinkHref svgPath
-    , SvgAttrs.width "20"
-    , SvgAttrs.height "20"
-    , SvgAttrs.x (String.fromFloat loc.x)
-    , SvgAttrs.y (String.fromFloat loc.y)
+    , SvgAttrs.width <| String.fromFloat size
+    , SvgAttrs.height <| String.fromFloat size
+    , SvgAttrs.x <| String.fromFloat (loc.x-size/2)
+    , SvgAttrs.y <| String.fromFloat (loc.y-size/2)
     ]
     []
 
