@@ -486,13 +486,29 @@ westernSigns =
   , {name = Pisces,      longitude = 330.0, element = Water}
   ]
 
+houseAngle : House -> List HouseCusp -> Maybe Float
+houseAngle h cusps =
+  let
+    isAngle : House -> HouseCusp -> Maybe HouseCusp
+    isAngle h_ c_ = 
+      case c_.house == h_ of
+        True  -> Just c_
+        False -> Nothing
+  in
+  List.filterMap (isAngle h) cusps
+    |> List.head
+    |> Maybe.andThen (\c->Just c.cusp)
+
+ascendantAngle = houseAngle I
+
 chart : HoroscopeResponse -> Html Msg
 chart {houseCusps, planetaryPositions} =
   let
     width  = 666
     center = width / 2
     r      = width * 0.42
-    container =  { centerX = center, centerY = center, radius = r }
+    o      = ascendantAngle houseCusps |> Maybe.withDefault 0.0
+    container =  { centerX = center, centerY = center, radius = r, offset = (180 - o) }
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
@@ -609,14 +625,18 @@ houseText h =
           
 
 -- Helper functions for the crazy math
-type alias Circle = { centerX: Float, centerY: Float, radius : Float}
+type alias Circle = { centerX: Float, centerY: Float, radius : Float, offset: Float}
 type alias Angle = Float
 type alias Cartesian = { x: Float, y: Float}
 
 polarToCartesian : Circle -> Angle -> Cartesian
-polarToCartesian { centerX, centerY, radius } angle =
+polarToCartesian { centerX, centerY, radius, offset} angle =
   let
-      (x_, y_) = fromPolar (radius, degrees angle)
+    -- all coordinates should be relative to the offset, which is the angle
+    -- between the Ascendant and 180 degrees from the zero point of the container
+    -- (which isn't really Aries, as Aries will also be off-set.)
+    offsetAngle = angle - offset
+    (x_, y_)    = fromPolar (radius, degrees offsetAngle)
   in
   {x = centerX + x_, y = centerY + y_}
 
