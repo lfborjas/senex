@@ -142,7 +142,7 @@ requestHeading { dob, loc } =
         [ Html.text
             ("Ephemerides for "
                 ++ Maybe.withDefault "" dob
-                ++ "--"
+                ++ " at "
                 ++ Maybe.withDefault "" loc
             )
         ]
@@ -489,35 +489,31 @@ westernSigns =
 chart : HoroscopeResponse -> Html Msg
 chart {houseCusps, planetaryPositions} =
   let
-    width = 666
+    width  = 666
+    center = width / 2
+    r      = width * 0.42
+    container =  { centerX = center, centerY = center, radius = r }
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
     [ g [SvgAttrs.id "radix"]
-        [ zodiac  width
-        , houses  width houseCusps
-        , planets width planetaryPositions
+        [ zodiac  container
+        , houses  container houseCusps
+        , planets container planetaryPositions
         ] 
     ]
 
-zodiac : Float -> Svg Msg
-zodiac containerWidth =
-  let
-    center = containerWidth / 2
-    r      = containerWidth * 0.42
-    containerCircle = { centerX = center, centerY = center, radius = r }
-  in
+zodiac : Circle -> Svg Msg
+zodiac containerCircle =
   g [SvgAttrs.id "zodiac"]
     [ zodiacCircle containerCircle
     , g [SvgAttrs.id "signs"] (zodiacSigns containerCircle)
     ]
 
-houses : Float -> List HouseCusp -> Svg Msg
-houses containerWidth housesData =
+houses : Circle -> List HouseCusp -> Svg Msg
+houses container housesData =
   let
-      center = containerWidth / 2
-      r      = containerWidth * 0.37
-      containerCircle = { centerX = center, centerY = center, radius = r}
+      containerCircle = { container | radius = container.radius - 33}
   in
   g [SvgAttrs.id "housesCircle"]
     [ housesCircle containerCircle
@@ -525,20 +521,22 @@ houses containerWidth housesData =
     --, g [SvgAttrs.id "ruler"]  (drawDegrees containerCircle (List.range 0 360))
     ]
 
-planets : Float -> List PlanetPosition -> Svg Msg
-planets containerWidth planetsData =
-  let
-      center = containerWidth / 2
-      r      = containerWidth * 0.42
-      containerCircle = { centerX = center, centerY = center, radius = r}
-  in
-  g [SvgAttrs.id "housesCircle"]
-    [ g [SvgAttrs.id "houses"] (drawPlanets containerCircle planetsData)
+planets : Circle -> List PlanetPosition -> Svg Msg
+planets containerCircle planetsData =
+  g [SvgAttrs.id "planetsCircle"]
+    [ g [SvgAttrs.id "planets"] (drawPlanets containerCircle planetsData)
     ]
 
 housesCircle : Circle -> Svg Msg
 housesCircle {centerX, centerY, radius} =
-  circle [cx (String.fromFloat centerX), cy (String.fromFloat centerY), r (String.fromFloat radius), fill "none", stroke "#444", strokeWidth "1"] []  
+  circle [ cx (String.fromFloat centerX)
+         , cy (String.fromFloat centerY)
+         , r (String.fromFloat radius)
+         , fill "none"
+         , stroke "#444"
+         , strokeWidth "1"
+         ]
+        []  
 
 drawPlanets : Circle -> List PlanetPosition -> List (Svg Msg)
 drawPlanets c d = List.map (drawPlanet c) d
