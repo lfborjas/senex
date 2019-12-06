@@ -462,12 +462,59 @@ type ClassicalElement
   | Fire
   | Water
 
+-- see: https://en.wikipedia.org/wiki/Astrological_aspect
+type AspectName
+  = Conjunction
+  | Sextile
+  | Square
+  | Trine
+  | Opposition
+  | Quincunx
+  | SemiSextile
+  | Quintile
+  | BiQuintile
+  | Septile
+  | SemiSquare
+  | Novile
+  | Sesquisquare -- Trioctile
+
+type alias Aspect = { name : AspectName, maxOrb : Float, angle : Float}
+
+type alias HoroscopeAspect =
+  {
+    aspect : Aspect
+  , planets : (PlanetPosition, PlanetPosition)
+  }
+
 -- see: https://en.wikipedia.org/wiki/Astrological_sign#Western_zodiac_signs
 type alias ZodiacSign = 
   { name : ZodiacSignName
   , longitude : Float
   , element : ClassicalElement
   }
+
+-- using the simplified orbs adopted by astro.com and Liz Greene:
+-- https://www.astro.com/astrology/in_aspect_e.htm
+majorAspects : List Aspect
+majorAspects =
+  [
+    {name = Conjunction, angle = 0.0, maxOrb = 10.0}
+  , {name = Sextile, angle = 60.0, maxOrb = 6.0 }
+  , {name = Square, angle = 90.0, maxOrb = 10.0}
+  , {name = Trine, angle = 120.0, maxOrb = 10.0}
+  , {name = Opposition, angle = 180.0, maxOrb = 10.0}
+  ]
+
+minorAspects : List Aspect
+minorAspects =
+  [ 
+    {name = SemiSquare, angle = 45.0, maxOrb = 3.0}
+  , {name = Sesquisquare, angle = 135.0, maxOrb = 3.0}
+  , {name = SemiSextile, angle = 30.0, maxOrb = 3.0}
+  , {name = Quincunx, angle = 150.0, maxOrb = 3.0}
+  , {name = Quintile, angle = 72.0, maxOrb = 2.0}
+  , {name = BiQuintile, angle = 144.0, maxOrb = 2.0}
+  ]
 
 westernSigns : List ZodiacSign
 westernSigns =
@@ -501,6 +548,17 @@ houseAngle h cusps =
 
 ascendantAngle = houseAngle I
 
+calculateAspects : List PlanetPosition -> List Aspect -> List HoroscopeAspect
+calculateAspects planetPositions aspects = []
+{-   let
+      allAspects : PlanetPosition -> List HoroscopeAspect
+      allAspects {planet, position} =
+        
+
+  in
+  
+  List.concatMap allAspects -}
+
 chart : HoroscopeResponse -> Html Msg
 chart {houseCusps, planetaryPositions} =
   let
@@ -509,6 +567,7 @@ chart {houseCusps, planetaryPositions} =
     r      = width * 0.42
     o      = ascendantAngle houseCusps |> Maybe.withDefault 0.0
     container =  { centerX = center, centerY = center, radius = r, offset = (180 - o) }
+    aspects  = calculateAspects planetaryPositions <| List.append majorAspects minorAspects
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
