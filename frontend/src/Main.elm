@@ -187,11 +187,47 @@ requestHeading { dob, loc } =
 
 astroDataTables : HoroscopeResponse -> Html Msg
 astroDataTables { houseCusps, planetaryPositions } =
-    div []
-        [ housesTable houseCusps
-        , planetsTable planetaryPositions
-        ]
+  let
+    aspects  = defaultAspects planetaryPositions
+  in
+  div []
+    [ housesTable houseCusps
+    , planetsTable planetaryPositions
+    , aspectsTable aspects
+    ]
 
+aspectsTable : List (Maybe HoroscopeAspect) -> Html Msg
+aspectsTable aspects =
+  let
+      aspectRow asp =
+        let
+            (a, b) = asp.planets
+        in
+        
+        tr []
+          [ td [] [Html.text (Debug.toString asp.aspect.name)]
+          , td [] [Html.text <| "(" ++ (Debug.toString a.planet) ++ ", " ++ (Debug.toString b.planet) ++ ")"]
+          , td [] [Html.text <| String.fromFloat asp.angle ]
+          , td [] [Html.text <| String.fromFloat asp.orb]
+          ]
+      rowFolder r rows =
+        case r of
+            Nothing -> rows
+            Just a -> (aspectRow a) :: rows
+  in
+  table []
+    [ thead []
+        [ tr []
+            [ th [] [Html.text "Aspect"]
+            , th [] [Html.text "Planets"]
+            , th [] [Html.text "Angle"]
+            , th [] [Html.text "Orb"]
+            ]
+        ]
+    , tbody [] 
+        (List.foldl rowFolder [] aspects)
+    ]
+  
 
 planetsTable : List PlanetPosition -> Html Msg
 planetsTable positions =
@@ -521,6 +557,8 @@ type alias HoroscopeAspect =
   {
     aspect : Aspect
   , planets : (PlanetPosition, PlanetPosition)
+  , angle : Float
+  , orb : Float
   }
 
 -- see: https://en.wikipedia.org/wiki/Astrological_sign#Western_zodiac_signs
@@ -585,16 +623,56 @@ houseAngle h cusps =
 
 ascendantAngle = houseAngle I
 
-calculateAspects : List PlanetPosition -> List Aspect -> List HoroscopeAspect
-calculateAspects planetPositions aspects = []
-{-   let
-      allAspects : PlanetPosition -> List HoroscopeAspect
-      allAspects {planet, position} =
-        
-
-  in
+-- from: https://github.com/elm-community/list-extra/blob/36b63fc2ab1b1b602a30dbc71e9b829a0f325e21/src/List/Extra.elm
+select : List a -> List (a, List a)
+select xs =
+  case xs of
+      [] ->
+        []   
   
-  List.concatMap allAspects -}
+      x :: xs_ ->
+        (x, xs_) :: List.map (\(y, ys) -> (y, x :: ys)) (select xs_)
+
+inPairs : List a -> List (a, a)
+inPairs l =
+  let
+      mkPairs : (a, List a) -> List (a, a)
+      mkPairs (e, es) = List.foldl (\o acc -> (e, o) :: acc) [] es   
+  in
+  select l
+    |> List.concatMap mkPairs
+
+haveAspect : PlanetPosition -> PlanetPosition -> Aspect -> Maybe HoroscopeAspect
+haveAspect a b aspect =
+  let
+    angle = abs <| a.position.long - b.position.long
+    orb   = abs <| aspect.angle - angle
+  in
+    case (orb <= aspect.maxOrb ) of
+        False -> Nothing
+        True  -> Just {aspect = aspect, planets = (a, b), angle = angle, orb = orb}
+            
+  
+
+aspectsBetween : List Aspect -> (PlanetPosition, PlanetPosition) -> List (Maybe HoroscopeAspect)
+aspectsBetween possibleAspects (planetA, planetB) = 
+  let
+      isJust x =
+        case x of
+            Just _ -> True
+            Nothing -> False
+  in
+  List.map (haveAspect planetA planetB) possibleAspects
+    |> List.filter isJust
+  
+
+calculateAspects : List Aspect -> List PlanetPosition -> List (Maybe HoroscopeAspect)
+calculateAspects aspects planetPositions =
+  planetPositions
+    |> inPairs
+    |> List.concatMap (aspectsBetween aspects) -- TODO: dedupe!
+
+defaultAspects = calculateAspects (List.append majorAspects minorAspects)
 
 chart : HoroscopeResponse -> Html Msg
 chart {houseCusps, planetaryPositions} =
@@ -604,7 +682,7 @@ chart {houseCusps, planetaryPositions} =
     r      = width * 0.42
     o      = ascendantAngle houseCusps |> Maybe.withDefault 0.0
     container =  { centerX = center, centerY = center, radius = r, offset = (180 - o) }
-    aspects_  = calculateAspects planetaryPositions <| List.append majorAspects minorAspects
+    aspects = defaultAspects planetaryPositions
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
