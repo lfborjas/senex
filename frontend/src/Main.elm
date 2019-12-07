@@ -1,4 +1,4 @@
-module Main exposing (Coordinates, HoroscopeRequest, HoroscopeResponse, House(..), HouseCusp, Model(..), Msg(..), Planet(..), PlanetPosition, astroDataTables, coordinateDecoder, defaultData, encodeHoroscopeRequest, getHoroscopeData, horoscopeDecoder, houseCuspsDecoder, houseRow, housesTable, init, main, planetDecoder, planetPositionDecoder, planetRow, planetsTable, requestHeading, subscriptions, update, view)
+module Main exposing (Coordinates, HoroscopeRequest, HoroscopeResponse, House(..), HouseCusp, Model, Msg(..), Planet(..), PlanetPosition, astroDataTables, coordinateDecoder, defaultData, encodeHoroscopeRequest, getHoroscopeData, horoscopeDecoder, houseCuspsDecoder, houseRow, housesTable, init, main, planetDecoder, planetPositionDecoder, planetRow, planetsTable, requestHeading, subscriptions, update, view)
 
 import Browser
 import Html as Html exposing (..)
@@ -40,67 +40,64 @@ main =
         , view = view
         }
 
+type RemoteFetch req resp
+  = Loading
+  | Failure req
+  | Success req resp
 
-type Model
-    = BuildingRequest HoroscopeRequest
-    | Loading
-    | Failure HoroscopeRequest
-    | Success HoroscopeRequest HoroscopeResponse
+type alias Model =
+  {
+    horoscopeRequest  : Maybe HoroscopeRequest
+  , horoscopeResponse : Maybe (RemoteFetch HoroscopeRequest HoroscopeResponse)
+  }
 
 
 defaultData : HoroscopeRequest
 defaultData =
-    { dob = Just "1989-01-06T06:00:00.000Z"
+    { dob = Just "1989-01-06T06:30:00.000Z"
     , loc = Just "14.0839053,-87.2750137"
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( BuildingRequest defaultData, Cmd.none )
+    ( {horoscopeRequest = Just defaultData, horoscopeResponse = Nothing }, Cmd.none )
 
 
 type Msg
-    = AskData
-    | NewEntry
+    = GetHoroscope
+    | NewHoroscope
     | GotDob String
     | GotLoc String
-    | GotData HoroscopeRequest (Result Http.Error HoroscopeResponse)
+    | GotHoroscope HoroscopeRequest (Result Http.Error HoroscopeResponse)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotDob dob ->
-            case model of
-                BuildingRequest data ->
-                    ( BuildingRequest { data | dob = Just dob }, Cmd.none )
+        GotDob dob_ ->
+          case model.horoscopeRequest of
+            Nothing -> ({model | horoscopeRequest = Just { dob = Just dob_, loc = Nothing }}, Cmd.none)
+            Just r  -> ({model | horoscopeRequest = Just { r | dob = Just dob_ }}, Cmd.none)
 
-                _ ->
-                    ( BuildingRequest { dob = Just dob, loc = Nothing }, Cmd.none )
+        GotLoc loc_ ->
+          case model.horoscopeRequest of
+            Nothing -> ({model | horoscopeRequest = Just { dob = Nothing, loc = Just loc_ }}, Cmd.none)
+            Just r  -> ({model | horoscopeRequest = Just { r | loc = Just loc_ }}, Cmd.none)
+              
+        NewHoroscope ->
+          ( {model | horoscopeRequest = Just defaultData}, Cmd.none )
 
-        GotLoc loc ->
-            case model of
-                BuildingRequest data ->
-                    ( BuildingRequest { data | loc = Just loc }, Cmd.none )
-
-                _ ->
-                    ( BuildingRequest { dob = Nothing, loc = Just loc }, Cmd.none )
-
-        NewEntry ->
-            ( BuildingRequest defaultData, Cmd.none )
-
-        AskData ->
-            ( Loading, getHoroscopeData model )
+        GetHoroscope ->
+          ( {model | horoscopeResponse = Just Loading}, getHoroscopeData model )
 
         -- TODO: validate before submitting!
-        GotData req result ->
-            case result of
-                Ok r ->
-                    ( Success req r, Cmd.none )
-
-                Err _ ->
-                    ( Failure req, Cmd.none )
+        GotHoroscope req result ->
+          case result of
+            Ok r ->
+              ({model | horoscopeResponse = Just (Success req r)}, Cmd.none)      
+            Err _ ->
+              ({model | horoscopeResponse = Just (Failure req)}, Cmd.none)
 
 
 subscriptions : Model -> Sub Msg
@@ -110,28 +107,41 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    case model of
-        Failure request ->
-            div []
+    div []
+      [ viewRequestForm model 
+      , viewChart model
+      ]
+           
+
+viewRequestForm : Model -> Html Msg
+viewRequestForm {horoscopeRequest, horoscopeResponse} =
+  case horoscopeRequest of
+      Nothing -> div [] []
+      Just r ->
+        div []
+          [ input [ Attrs.type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
+          , input [ Attrs.type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
+          , button [ Evts.onClick GetHoroscope ] [ Html.text "Show Chart" ]
+          ]
+
+viewChart : Model -> Html Msg
+viewChart {horoscopeRequest, horoscopeResponse} =
+  case horoscopeResponse of
+      Nothing -> div [] [Html.text "Enter your info to see your chart!" ]
+      Just fetchData ->
+        case fetchData of
+            Loading ->
+              div [] [Html.text "Loading..."]
+            Failure r ->
+              div []
                 [ Html.text "Unable to load data"
-                , button [ Evts.onClick NewEntry ] [ Html.text "Try Again" ]
+                , button [ Evts.onClick GetHoroscope ] [ Html.text "Try Again" ]
                 ]
-
-        Loading ->
-            Html.text "Loading..."
-
-        BuildingRequest r ->
-            div []
-                [ input [ Attrs.type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
-                , input [ Attrs.type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
-                , button [ Evts.onClick AskData ] [ Html.text "Enter data!" ]
-                , br [] []
-                ]
-
-        Success req data ->
-            div []
-                [ button [ Evts.onClick NewEntry ] [ Html.text "New Data" ]
-                , requestHeading req
+        
+            Success entered data ->
+              div []
+                [ button [ Evts.onClick NewHoroscope ] [ Html.text "New Horoscope" ]
+                , requestHeading entered
                 , chart data
                 , astroDataTables data
                 ]
@@ -298,16 +308,16 @@ encodeHoroscopeRequest data =
 
 
 getHoroscopeData : Model -> Cmd Msg
-getHoroscopeData model =
-    case model of
-        BuildingRequest r ->
+getHoroscopeData {horoscopeRequest, horoscopeResponse} =
+    case horoscopeRequest of
+        Just r ->
             Http.post
                 { url = "http://localhost:3030/api/horoscope"
-                , expect = Http.expectJson (GotData r) horoscopeDecoder
+                , expect = Http.expectJson (GotHoroscope r) horoscopeDecoder
                 , body = encodeHoroscopeRequest r |> Http.jsonBody
                 }
 
-        _ ->
+        Nothing ->
             Cmd.none
 
 
@@ -567,7 +577,7 @@ chart {houseCusps, planetaryPositions} =
     r      = width * 0.42
     o      = ascendantAngle houseCusps |> Maybe.withDefault 0.0
     container =  { centerX = center, centerY = center, radius = r, offset = (180 - o) }
-    aspects  = calculateAspects planetaryPositions <| List.append majorAspects minorAspects
+    aspects_  = calculateAspects planetaryPositions <| List.append majorAspects minorAspects
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
@@ -809,4 +819,11 @@ file:///Users/luis/Downloads/swe_unix_src_2.08/doc/swephprg.htm#_Toc476664303
 
 All external SVG files are from the public domain, linked here:
 https://en.wikipedia.org/wiki/Astrological_symbols#Miscellaneous_symbols
+
+For time queries:
+https://developers.google.com/maps/documentation/timezone/start 
+
+for addresses/geocoding:
+https://developers.google.com/places/web-service/autocomplete
+https://developers.google.com/maps/documentation/geocoding/best-practices (use places and then latLong with placeID)
 -}
