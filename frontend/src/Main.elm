@@ -638,9 +638,16 @@ inPairs l =
   let
       mkPairs : (a, List a) -> List (a, a)
       mkPairs (e, es) = List.foldl (\o acc -> (e, o) :: acc) [] es   
+      
+      dedupe : (a, a) -> List (a, a) -> List (a, a)
+      dedupe (x, y) acc =
+        case (List.member (y, x) acc) of
+          True -> acc
+          False -> (x, y) :: acc
   in
   select l
     |> List.concatMap mkPairs
+    |> List.foldl dedupe []
 
 haveAspect : PlanetPosition -> PlanetPosition -> Aspect -> Maybe HoroscopeAspect
 haveAspect a b aspect =
@@ -668,9 +675,17 @@ aspectsBetween possibleAspects (planetA, planetB) =
 
 calculateAspects : List Aspect -> List PlanetPosition -> List (Maybe HoroscopeAspect)
 calculateAspects aspects planetPositions =
+  let
+      withoutEarth : PlanetPosition -> List PlanetPosition -> List PlanetPosition
+      withoutEarth p acc =
+        case p.planet of
+            Earth_ -> acc
+            _ -> p :: acc
+  in
   planetPositions
+    |> List.foldl withoutEarth []
     |> inPairs
-    |> List.concatMap (aspectsBetween aspects) -- TODO: dedupe!
+    |> List.concatMap (aspectsBetween aspects)
 
 defaultAspects = calculateAspects (List.append majorAspects minorAspects)
 
