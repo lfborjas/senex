@@ -16,7 +16,9 @@ import Maybe as Maybe exposing (..)
 import Result as Result
 import String as String
 import Color exposing (Color)
-
+import Bootstrap.CDN as CDN
+import Bootstrap.Grid as Grid
+import Bootstrap.Navbar as Navbar
 
 
 {-
@@ -49,6 +51,7 @@ type alias Model =
   {
     horoscopeRequest  : Maybe HoroscopeRequest
   , horoscopeResponse : Maybe (RemoteFetch HoroscopeRequest HoroscopeResponse)
+  , navbarState : Navbar.State
   }
 
 
@@ -61,7 +64,10 @@ defaultData =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( {horoscopeRequest = Just defaultData, horoscopeResponse = Nothing }, Cmd.none )
+  let
+      (ns, navbarCmd) = Navbar.initialState NavbarMsg
+  in
+  ( {horoscopeRequest = Just defaultData, horoscopeResponse = Nothing, navbarState = ns }, navbarCmd )
 
 
 type Msg
@@ -70,11 +76,15 @@ type Msg
     | GotDob String
     | GotLoc String
     | GotHoroscope HoroscopeRequest (Result Http.Error HoroscopeResponse)
+    | NavbarMsg Navbar.State
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        NavbarMsg state ->
+          ({ model | navbarState = state}, Cmd.none)
+
         GotDob dob_ ->
           case model.horoscopeRequest of
             Nothing -> ({model | horoscopeRequest = Just { dob = Just dob_, loc = Nothing }}, Cmd.none)
@@ -102,16 +112,33 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Navbar.subscriptions model.navbarState NavbarMsg
 
 
 view : Model -> Html Msg
 view model =
     div []
-      [ viewRequestForm model 
-      , viewChart model
+      [ CDN.stylesheet -- TODO: remove for prod
+      , div []
+          [ menu model
+          , Grid.container []
+              [ Grid.row []
+                  [ Grid.col []
+                      [ viewRequestForm model
+                      , viewChart model 
+                      ]
+                    ]
+              ]
+          ]
       ]
-           
+
+menu : Model -> Html Msg
+menu model =
+  Navbar.config NavbarMsg
+    |> Navbar.withAnimation
+    |> Navbar.dark
+    |> Navbar.brand [ Attrs.href "#" ] [ Html.text "Senex" ]
+    |> Navbar.view model.navbarState
 
 viewRequestForm : Model -> Html Msg
 viewRequestForm {horoscopeRequest, horoscopeResponse} =
@@ -140,8 +167,8 @@ viewChart {horoscopeRequest, horoscopeResponse} =
         
             Success entered data ->
               div []
-                [ button [ Evts.onClick NewHoroscope ] [ Html.text "New Horoscope" ]
-                , requestHeading entered
+                [ --button [ Evts.onClick NewHoroscope ] [ Html.text "New Horoscope" ]
+                  requestHeading entered
                 , chart data
                 , astroDataTables data
                 ]
