@@ -166,11 +166,14 @@ viewChart {horoscopeRequest, horoscopeResponse} =
                 ]
         
             Success entered data ->
+              let
+                  filteredData = {data | planetaryPositions = filterPlanets defaultPlanets data.planetaryPositions}
+              in
               div []
                 [ --button [ Evts.onClick NewHoroscope ] [ Html.text "New Horoscope" ]
                   requestHeading entered
-                , chart data
-                , astroDataTables data
+                , chart filteredData
+                , astroDataTables filteredData
                 ]
 
 requestHeading : HoroscopeRequest -> Html Msg
@@ -311,9 +314,9 @@ type Planet
     | Neptune
     | Pluto
     | MeanNode
-    | TrueNode
-    | MeanApog
-    | OscuApog
+    | TrueNode -- see: https://www.astro.com/swisseph/swisseph.htm#_Toc19109030
+    | Lilith -- the `MeanApog`: see: https://www.astro.com/astrology/in_lilith_e.htm and https://www.astro.com/swisseph/swisseph.htm#_Toc19109029
+    | OscuApog -- aka "Astrological True Lilith": https://www.astro.com/swisseph/swisseph.htm#_Toc19109031
     | Earth_
     | Chiron
     | UnknownPlanet
@@ -496,7 +499,7 @@ planetDecoder =
                     succeed TrueNode
 
                 "MeanApog" ->
-                    succeed MeanApog
+                    succeed Lilith
 
                 "OscuApog" ->
                     succeed OscuApog
@@ -608,6 +611,35 @@ westernSigns =
   , {name = Pisces,      longitude = 330.0, element = Water}
   ]
 
+defaultPlanets : List Planet
+defaultPlanets =
+  [
+    Sun
+  , Moon
+  , Mercury
+  , Venus
+  , Mars
+  , Jupiter
+  , Saturn
+  , Uranus
+  , Neptune
+  , Pluto
+  , Chiron
+  , MeanNode
+  , Lilith
+  ]
+
+filterPlanets : List Planet -> List PlanetPosition -> List PlanetPosition
+filterPlanets planetsToKeep planetPositions =
+  let
+    keepPlanet : PlanetPosition -> List PlanetPosition -> List PlanetPosition
+    keepPlanet p acc = 
+      case (List.member p.planet planetsToKeep) of
+        True  -> p :: acc
+        False -> acc
+  in
+  List.foldl keepPlanet [] planetPositions
+
 houseAngle : House -> List HouseCusp -> Maybe Float
 houseAngle h cusps =
   let
@@ -675,15 +707,7 @@ aspectsBetween possibleAspects (planetA, planetB) =
 
 calculateAspects : List Aspect -> List PlanetPosition -> List (Maybe HoroscopeAspect)
 calculateAspects aspects planetPositions =
-  let
-      withoutEarth : PlanetPosition -> List PlanetPosition -> List PlanetPosition
-      withoutEarth p acc =
-        case p.planet of
-            Earth_ -> acc
-            _ -> p :: acc
-  in
   planetPositions
-    |> List.foldl withoutEarth []
     |> inPairs
     |> List.concatMap (aspectsBetween aspects)
 
@@ -801,6 +825,8 @@ planetText p =
       Uranus -> "♅"
       Neptune -> "♆"
       Pluto -> "♇"
+      MeanNode -> "☊"
+      Lilith -> "-☽"
       _ -> ""
 
 houseText : House -> String
