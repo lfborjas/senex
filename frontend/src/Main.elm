@@ -47,10 +47,13 @@ type RemoteFetch req resp
   | Failure req
   | Success req resp
 
+type alias AspectsList = List (Maybe HoroscopeAspect)
+
 type alias Model =
   {
     horoscopeRequest  : Maybe HoroscopeRequest
   , horoscopeResponse : Maybe (RemoteFetch HoroscopeRequest HoroscopeResponse)
+  , horoscopeAspects :  Maybe AspectsList
   , navbarState : Navbar.State
   }
 
@@ -67,7 +70,7 @@ init _ =
   let
       (ns, navbarCmd) = Navbar.initialState NavbarMsg
   in
-  ( {horoscopeRequest = Just defaultData, horoscopeResponse = Nothing, navbarState = ns }, navbarCmd )
+  ( {horoscopeRequest = Just defaultData, horoscopeResponse = Nothing, horoscopeAspects = Nothing, navbarState = ns }, navbarCmd )
 
 
 type Msg
@@ -105,10 +108,20 @@ update msg model =
         GotHoroscope req result ->
           case result of
             Ok r ->
-              ({model | horoscopeResponse = Just (Success req r)}, Cmd.none)      
+              ({model | horoscopeResponse = Just (Success req r), horoscopeAspects = Just (deriveAspects r)}, Cmd.none)      
             Err _ ->
               ({model | horoscopeResponse = Just (Failure req)}, Cmd.none)
 
+deriveAspects : HoroscopeResponse -> AspectsList
+deriveAspects {houseCusps, planetaryPositions} =
+-- filterPlanets defaultPlanets data.planetaryPositions
+  let
+      planetLocations = planetaryPositions
+        |> (filterPlanets defaultPlanets)
+        |> (List.map PlanetLocation)
+  in
+  
+  defaultAspects <| planetLocations
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -152,7 +165,7 @@ viewRequestForm {horoscopeRequest, horoscopeResponse} =
           ]
 
 viewChart : Model -> Html Msg
-viewChart {horoscopeRequest, horoscopeResponse} =
+viewChart {horoscopeRequest, horoscopeResponse, horoscopeAspects} =
   case horoscopeResponse of
       Nothing -> div [] [Html.text "Enter your info to see your chart!" ]
       Just fetchData ->
@@ -166,15 +179,18 @@ viewChart {horoscopeRequest, horoscopeResponse} =
                 ]
         
             Success entered data ->
-              let
-                  filteredData = {data | planetaryPositions = filterPlanets defaultPlanets data.planetaryPositions}
-              in
               div []
                 [ --button [ Evts.onClick NewHoroscope ] [ Html.text "New Horoscope" ]
                   requestHeading entered
-                , chart filteredData
-                , astroDataTables filteredData
+                , chart data (aspectsList horoscopeAspects)
+                , astroDataTables data (aspectsList horoscopeAspects)
                 ]
+
+aspectsList : Maybe AspectsList -> AspectsList
+aspectsList mx =
+  case mx of
+      Nothing -> []
+      Just l ->  l          
 
 requestHeading : HoroscopeRequest -> Html Msg
 requestHeading { dob, loc } =
@@ -188,11 +204,8 @@ requestHeading { dob, loc } =
         ]
 
 
-astroDataTables : HoroscopeResponse -> Html Msg
-astroDataTables { houseCusps, planetaryPositions } =
-  let
-    as_  = defaultAspects <| List.map PlanetLocation planetaryPositions
-  in
+astroDataTables : HoroscopeResponse -> AspectsList -> Html Msg
+astroDataTables { houseCusps, planetaryPositions } as_ =
   div []
     [ housesTable houseCusps
     , planetsTable planetaryPositions
@@ -746,10 +759,11 @@ calculateAspects aspectList planetPositions =
     |> inPairs
     |> List.concatMap (aspectsBetween aspectList)
 
+defaultAspects : List Ecliptic -> List (Maybe HoroscopeAspect)
 defaultAspects = calculateAspects (List.append majorAspects minorAspects)
 
-chart : HoroscopeResponse -> Html Msg
-chart {houseCusps, planetaryPositions} =
+chart : HoroscopeResponse -> AspectsList -> Html Msg
+chart {houseCusps, planetaryPositions} calculatedAspects =
   let
     width  = 666
     center = width / 2
@@ -759,7 +773,6 @@ chart {houseCusps, planetaryPositions} =
     container              = { centerX = center, centerY = center, radius = r, offset = (180 - o) }
     housesOuterCircle      = {container | radius = container.radius - z}
     aspectsOuterCircle     = {container | radius = container.radius - 3 * z}
-    calculatedAspects = defaultAspects <| List.map PlanetLocation planetaryPositions
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
