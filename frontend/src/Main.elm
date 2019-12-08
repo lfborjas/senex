@@ -689,12 +689,22 @@ inPairs l =
 haveAspect : PlanetPosition -> PlanetPosition -> Aspect -> Maybe HoroscopeAspect
 haveAspect a b aspect =
   let
-    angle = abs <| a.position.long - b.position.long
-    orb   = abs <| aspect.angle - angle
+    angle = a.position.long - b.position.long
+    counterAngle = 360 - (abs angle)
+    
+    aspectAngle = case (aspect.angle == 0.0) of
+        True  -> 360.0 -- lil trick to avoid division by zero when doing mod!
+        False -> aspect.angle
+
+    -- using floor to err on the side of caution, pessimistic about aspects!
+    orbCalc = abs >> ceiling >> modBy (floor aspectAngle) >> toFloat
+    
+    angles = List.filter (\x -> (orbCalc x) <= aspect.maxOrb) [angle, counterAngle]
+
   in
-    case (orb <= aspect.maxOrb ) of
-        False -> Nothing
-        True  -> Just {aspect = aspect, planets = (a, b), angle = angle, orb = orb}
+    case angles of
+        [] -> Nothing
+        (x :: xs)  -> Just {aspect = aspect, planets = (a, b), angle = x, orb = (orbCalc x)}
             
   
 
