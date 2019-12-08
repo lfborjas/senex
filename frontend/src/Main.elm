@@ -729,17 +729,17 @@ chart {houseCusps, planetaryPositions} =
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
     [ g [SvgAttrs.id "radix"]
-        [ zodiac  container
+        [ zodiac  container housesOuterCircle
         , houses  housesOuterCircle aspectsCircle houseCusps
         , planets container planetaryPositions
         ] 
     ]
 
-zodiac : Circle -> Svg Msg
-zodiac containerCircle =
+zodiac : Circle -> Circle -> Svg Msg
+zodiac outer inner =
   g [SvgAttrs.id "zodiac"]
-    [ zodiacCircle containerCircle
-    , g [SvgAttrs.id "signs"] (zodiacSigns containerCircle)
+    [ zodiacCircle outer
+    , g [SvgAttrs.id "signs"] (zodiacSigns outer inner)
     ]
 
 houses : Circle -> Circle -> List HouseCusp -> Svg Msg
@@ -815,21 +815,21 @@ zodiacCircle : Circle -> Svg Msg
 zodiacCircle {centerX, centerY, radius} =
   circle [cx (String.fromFloat centerX), cy (String.fromFloat centerY), r (String.fromFloat radius), fill "none", stroke "#333", strokeWidth "2"] []
 
-zodiacSigns : Circle -> List (Svg Msg)
-zodiacSigns c = List.map (zodiacSign c) westernSigns
+zodiacSigns : Circle -> Circle -> List (Svg Msg)
+zodiacSigns i o = List.map (zodiacSign i o) westernSigns
 
-zodiacSign : Circle -> ZodiacSign -> Svg Msg
-zodiacSign container sign =
+zodiacSign : Circle -> Circle -> ZodiacSign -> Svg Msg
+zodiacSign outer inner sign =
   let
       signLengthInDegrees = 30.0
-      signBandThickness   = 33
+      signBandThickness   = outer.radius - inner.radius
   in
   
   g []
    [ 
-      Svg.path [d (buildSlicePath container signLengthInDegrees signBandThickness (-sign.longitude)), fill (elementColor sign.element), strokeWidth "0", stroke "none"] []
+      Svg.path [d (buildSlicePath outer signLengthInDegrees signBandThickness (-sign.longitude)), fill (elementColor sign.element), strokeWidth "0", stroke "none"] []
     , signGlyph 
-        container
+        outer
         { sign | longitude = -(sign.longitude + (signLengthInDegrees / 2)) }
    ]
 
