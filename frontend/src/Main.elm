@@ -719,15 +719,18 @@ chart {houseCusps, planetaryPositions} =
     width  = 666
     center = width / 2
     r      = width * 0.42
+    z      = 33.0 -- zodiac band thickness
     o      = ascendantAngle houseCusps |> Maybe.withDefault 0.0
-    container =  { centerX = center, centerY = center, radius = r, offset = (180 - o) }
+    container         = { centerX = center, centerY = center, radius = r, offset = (180 - o) }
+    housesOuterCircle = {container | radius = container.radius - z}
+    aspectsCircle     = {container | radius = container.radius - 3 * z}
     aspects = defaultAspects planetaryPositions
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
     [ g [SvgAttrs.id "radix"]
         [ zodiac  container
-        , houses  container houseCusps
+        , houses  housesOuterCircle aspectsCircle houseCusps
         , planets container planetaryPositions
         ] 
     ]
@@ -739,19 +742,12 @@ zodiac containerCircle =
     , g [SvgAttrs.id "signs"] (zodiacSigns containerCircle)
     ]
 
-houses : Circle -> List HouseCusp -> Svg Msg
-houses container housesData =
-  let
-    -- TODO: warning, magic number! This 33 is the same as the zodiac's signBandThickness!
-    zodiacBandThickness = 33.0
-    containerCircle = { container | radius = container.radius - zodiacBandThickness }
-    housesOuterCircle = containerCircle
-    housesInnerCircle  = {container | radius = container.radius - 3 * zodiacBandThickness}
-  in
+houses : Circle -> Circle -> List HouseCusp -> Svg Msg
+houses outer inner housesData =
   g [SvgAttrs.id "housesCircle"]
-    [ housesCircle housesInnerCircle
-    , housesCircle housesOuterCircle
-    , g [SvgAttrs.id "houses"] (drawHouses housesOuterCircle housesInnerCircle housesData)
+    [ housesCircle inner
+    , housesCircle outer
+    , g [SvgAttrs.id "houses"] (drawHouses outer inner housesData)
     --, g [SvgAttrs.id "ruler"]  (drawDegrees containerCircle (List.range 0 360))
     ]
 
