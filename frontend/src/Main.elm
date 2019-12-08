@@ -227,7 +227,7 @@ aspectsTable as_ =
       aspectRow asp =
         let
             (a, b) = asp.bodies
-            absAngle = if (asp.angle < 360.0) then 360.0 - (abs asp.angle) else asp.angle
+            absAngle = if (asp.angle < 0.0) then 360.0 - (abs asp.angle) else asp.angle
         in
         
         tr []
@@ -764,7 +764,8 @@ aspectsBetween possibleAspects (planetA, planetB) =
   List.map (haveAspect planetA planetB) possibleAspects
     |> List.filter isJust
   
-
+-- TODO: prune redundant aspects (aspects which are multiples of one another)
+-- sorting by angle, and then removing duplicate (Ecliptic, Ecliptic) pairs.
 calculateAspects : List Aspect -> List Ecliptic -> List (Maybe HoroscopeAspect)
 calculateAspects aspectList planetPositions =
   planetPositions
@@ -1036,10 +1037,9 @@ type alias AstrologicalLongitude =
 getAstrologicalLongitude : List ZodiacSign -> Angle -> AstrologicalLongitude
 getAstrologicalLongitude signList decimalAngle =
   let
-      ag = if (decimalAngle < 0.0) then 360.0-(abs decimalAngle) else decimalAngle              
-      d = truncate ag
-      m = (ag - (toFloat d)) * 60.0 |> truncate
-      s = (ag - (toFloat d) - ((toFloat m)/60.0)) * 60.0 |> truncate
+      d = truncate decimalAngle
+      m = (decimalAngle - (toFloat d)) * 60.0 |> truncate
+      s = (decimalAngle - (toFloat d) - ((toFloat m)/60.0)) * 3600.0 |> round
       closestSignLongitude = (d // 30) * 30 |> toFloat
       zs = List.filter (.longitude >> ((==) closestSignLongitude)) signList
         |> List.head
