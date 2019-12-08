@@ -191,7 +191,7 @@ requestHeading { dob, loc } =
 astroDataTables : HoroscopeResponse -> Html Msg
 astroDataTables { houseCusps, planetaryPositions } =
   let
-    as_  = defaultAspects planetaryPositions
+    as_  = defaultAspects <| List.map PlanetLocation planetaryPositions
   in
   div []
     [ housesTable houseCusps
@@ -199,17 +199,24 @@ astroDataTables { houseCusps, planetaryPositions } =
     , aspectsTable as_
     ]
 
+bodyName : Ecliptic -> String
+bodyName a =
+  case a of
+      PlanetLocation x ->  planetText x.planet
+      CuspLocation   x ->  houseText x.house
+          
+
 aspectsTable : List (Maybe HoroscopeAspect) -> Html Msg
 aspectsTable as_ =
   let
       aspectRow asp =
         let
-            (a, b) = asp.planets
+            (a, b) = asp.bodies
         in
         
         tr []
           [ td [] [Html.text (Debug.toString asp.aspect.name)]
-          , td [] [Html.text <| "(" ++ (Debug.toString a.planet) ++ ", " ++ (Debug.toString b.planet) ++ ")"]
+          , td [] [Html.text <| "(" ++ (bodyName a) ++ ", " ++ (bodyName b) ++ ")"]
           , td [] [Html.text <| String.fromFloat asp.angle ]
           , td [] [Html.text <| String.fromFloat asp.orb]
           ]
@@ -518,6 +525,13 @@ planetDecoder =
 
 -- | Chart drawing and associated types
 
+-- Both cusps and planets can be placed on the ecliptic, but they have 
+-- different coordinate information.
+type Ecliptic 
+  = CuspLocation HouseCusp
+  | PlanetLocation PlanetPosition
+
+
 type ZodiacSignName
   = Aries
   | Taurus
@@ -564,7 +578,7 @@ type alias Aspect = { name : AspectName, maxOrb : Float, angle : Float, temperam
 type alias HoroscopeAspect =
   {
     aspect : Aspect
-  , planets : (PlanetPosition, PlanetPosition)
+  , bodies : (Ecliptic, Ecliptic)
   , angle : Float
   , orb : Float
   }
@@ -686,10 +700,16 @@ inPairs l =
     |> List.concatMap mkPairs
     |> List.foldl dedupe []
 
-haveAspect : PlanetPosition -> PlanetPosition -> Aspect -> Maybe HoroscopeAspect
+getEclipticLocation : Ecliptic -> Float
+getEclipticLocation eclipticBody =
+  case eclipticBody of
+      PlanetLocation p -> p.position.long    
+      CuspLocation c   -> c.cusp
+
+haveAspect : Ecliptic -> Ecliptic -> Aspect -> Maybe HoroscopeAspect
 haveAspect a b aspect =
   let
-    angle = a.position.long - b.position.long
+    angle = (getEclipticLocation a) - (getEclipticLocation b)
     counterAngle = 360 - (abs angle)
     
     aspectAngle = case (aspect.angle == 0.0) of
@@ -704,11 +724,11 @@ haveAspect a b aspect =
   in
     case angles of
         [] -> Nothing
-        (x :: xs)  -> Just {aspect = aspect, planets = (a, b), angle = x, orb = (orbCalc x)}
+        (x :: xs)  -> Just {aspect = aspect, bodies = (a, b), angle = x, orb = (orbCalc x)}
             
   
 
-aspectsBetween : List Aspect -> (PlanetPosition, PlanetPosition) -> List (Maybe HoroscopeAspect)
+aspectsBetween : List Aspect -> (Ecliptic, Ecliptic) -> List (Maybe HoroscopeAspect)
 aspectsBetween possibleAspects (planetA, planetB) = 
   let
       isJust x =
@@ -720,7 +740,7 @@ aspectsBetween possibleAspects (planetA, planetB) =
     |> List.filter isJust
   
 
-calculateAspects : List Aspect -> List PlanetPosition -> List (Maybe HoroscopeAspect)
+calculateAspects : List Aspect -> List Ecliptic -> List (Maybe HoroscopeAspect)
 calculateAspects aspectList planetPositions =
   planetPositions
     |> inPairs
@@ -739,7 +759,7 @@ chart {houseCusps, planetaryPositions} =
     container              = { centerX = center, centerY = center, radius = r, offset = (180 - o) }
     housesOuterCircle      = {container | radius = container.radius - z}
     aspectsOuterCircle     = {container | radius = container.radius - 3 * z}
-    calculatedAspects = defaultAspects planetaryPositions
+    calculatedAspects = defaultAspects <| List.map PlanetLocation planetaryPositions
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
@@ -813,9 +833,9 @@ drawAspects c d =
 drawAspect : Circle -> HoroscopeAspect -> Svg Msg
 drawAspect container aspect =
   let
-      (a, b) = aspect.planets
-      longitudeA = -a.position.long
-      longitudeB = -b.position.long
+      (a, b) = aspect.bodies
+      longitudeA = a |> getEclipticLocation |> negate
+      longitudeB = b |> getEclipticLocation |> negate
   in
   
   g []
