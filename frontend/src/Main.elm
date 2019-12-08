@@ -114,14 +114,16 @@ update msg model =
 
 deriveAspects : HoroscopeResponse -> AspectsList
 deriveAspects {houseCusps, planetaryPositions} =
--- filterPlanets defaultPlanets data.planetaryPositions
   let
       planetLocations = planetaryPositions
-        |> (filterPlanets defaultPlanets)
-        |> (List.map PlanetLocation)
+        |> filterPlanets defaultPlanets
+        |> List.map PlanetLocation
+      angleLocations = houseCusps
+        |> filterHouses defaultHouses
+        |> List.map CuspLocation
   in
   
-  defaultAspects <| planetLocations
+  defaultAspects <| List.append planetLocations angleLocations
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -225,12 +227,13 @@ aspectsTable as_ =
       aspectRow asp =
         let
             (a, b) = asp.bodies
+            absAngle = if (asp.angle < 360.0) then 360.0 - (abs asp.angle) else asp.angle
         in
         
         tr []
           [ td [] [Html.text (Debug.toString asp.aspect.name)]
           , td [] [Html.text <| "(" ++ (bodyName a) ++ ", " ++ (bodyName b) ++ ")"]
-          , td [] [Html.text <| String.fromFloat asp.angle ]
+          , td [] [Html.text <| String.fromFloat absAngle ]
           , td [] [Html.text <| String.fromFloat asp.orb]
           ]
       rowFolder r rows =
@@ -258,7 +261,7 @@ planetsTable positions =
         [ thead []
             [ tr []
                 [ th [] [ Html.text "Planet" ]
-                , th [] [ Html.text "Position (lat, long)" ]
+                , th [] [ Html.text "Position" ]
                 ]
             ]
         , tbody []
@@ -270,7 +273,7 @@ planetRow : PlanetPosition -> Html Msg
 planetRow { planet, position } =
     tr []
         [ td [] [ Html.text <| Debug.toString planet ]
-        , td [] [ Html.text <| "(" ++ Debug.toString position.lat ++ ", " ++ Debug.toString position.long ++ ")" ]
+        , td [] [ Html.text <| longitudeText position.long ]
         ]
 
 
@@ -278,7 +281,7 @@ houseRow : HouseCusp -> Html Msg
 houseRow { house, cusp } =
     tr []
         [ td [] [ Html.text <| Debug.toString house ]
-        , td [] [ Html.text <| Debug.toString cusp ]
+        , td [] [ Html.text <| longitudeText cusp ]
         ]
 
 
@@ -661,16 +664,25 @@ defaultPlanets =
   , Lilith
   ]
 
+defaultHouses : List House
+defaultHouses = [I, X]
+
 filterPlanets : List Planet -> List PlanetPosition -> List PlanetPosition
 filterPlanets planetsToKeep planetPositions =
   let
-    keepPlanet : PlanetPosition -> List PlanetPosition -> List PlanetPosition
-    keepPlanet p acc = 
-      case (List.member p.planet planetsToKeep) of
-        True  -> p :: acc
-        False -> acc
+    keepPlanet : PlanetPosition -> Bool
+    keepPlanet p = List.member p.planet planetsToKeep
   in
-  List.foldl keepPlanet [] planetPositions
+  List.filter keepPlanet planetPositions
+
+filterHouses : List House -> List HouseCusp -> List HouseCusp
+filterHouses housesToKeep houseCusps =
+  let
+      keepHouse : HouseCusp -> Bool
+      keepHouse h = List.member h.house housesToKeep
+  in
+  List.filter keepHouse houseCusps
+  
 
 houseAngle : House -> List HouseCusp -> Maybe Float
 houseAngle h cusps =
@@ -929,6 +941,27 @@ zodiacSign outer inner sign =
         { sign | longitude = -(sign.longitude + (signLengthInDegrees / 2)) }
    ]
 
+longitudeText : Angle -> String
+longitudeText a =
+  let
+      aLong : AstrologicalLongitude
+      aLong = getAstrologicalLongitude westernSigns a
+      signText = case aLong.sign of
+          Just z -> zodiacText z
+          Nothing -> ""
+      degComponent : String -> Int -> String
+      degComponent suffix = String.fromInt >> (String.padLeft 2 '0') >> (\x-> x ++ suffix) 
+      dText = aLong.degrees |> degComponent "°"
+      mText = aLong.minutes |> degComponent "′"
+      sText = aLong.seconds |> degComponent "″"
+  in
+  case aLong.sign of
+      -- couldn't calculate it relative to a constellation
+      Nothing -> aLong.angle |> String.fromFloat 
+      Just _  -> signText ++ " " ++ dText ++ mText ++ sText
+          
+  
+
 planetText : Planet -> String
 planetText p =
   case p of
@@ -944,8 +977,25 @@ planetText p =
       Neptune -> "♆"
       Pluto -> "♇"
       MeanNode -> "☊"
-      Lilith -> "-☽"
+      Lilith -> "Lilith"
+      Chiron -> "Chiron"
       _ -> ""
+
+zodiacText : ZodiacSignName -> String
+zodiacText z =
+  case z of
+      Aries -> "♈️"
+      Taurus -> "♉️"
+      Gemini -> "♊️"
+      Cancer -> "♋️"
+      Leo -> "♌️"
+      Virgo -> "♍️"
+      Libra -> "♎️"
+      Scorpio -> "♏️"
+      Sagittarius -> "♐️"
+      Capricorn -> "♑️"
+      Aquarius -> "♒️"
+      Pisces -> "♓️"  
 
 houseText : House -> String
 houseText h =
@@ -963,12 +1013,41 @@ houseText h =
       XI -> "11"
       XII -> "12"
       UnknownCusp -> ""
-          
 
--- Helper functions for the crazy math
+
+
+-- | Helper functions for the crazy math
+
+-- TODO: this is a better abstraction than "polar", and it'd help us to not have to negate
+-- longitudes everywhere!
+-- https://en.wikipedia.org/wiki/Ecliptic_coordinate_system
 type alias Circle = { centerX: Float, centerY: Float, radius : Float, offset: Float}
 type alias Angle = Float
 type alias Cartesian = { x: Float, y: Float}
+type alias AstrologicalLongitude = 
+  { 
+    sign : Maybe ZodiacSignName -- there's a chance it won't be found
+  , angle : Angle -- original angle
+  , degrees : Int
+  , minutes : Int
+  , seconds : Int 
+  }
+
+getAstrologicalLongitude : List ZodiacSign -> Angle -> AstrologicalLongitude
+getAstrologicalLongitude signList decimalAngle =
+  let
+      ag = if (decimalAngle < 0.0) then 360.0-(abs decimalAngle) else decimalAngle              
+      d = truncate ag
+      m = (ag - (toFloat d)) * 60.0 |> truncate
+      s = (ag - (toFloat d) - ((toFloat m)/60.0)) * 60.0 |> truncate
+      closestSignLongitude = (d // 30) * 30 |> toFloat
+      zs = List.filter (.longitude >> ((==) closestSignLongitude)) signList
+        |> List.head
+        |> Maybe.andThen (.name >> Just)
+      relativeDegrees = (closestSignLongitude - (toFloat d)) |> abs |> truncate
+  in
+  { sign = zs, angle = decimalAngle, degrees = relativeDegrees, minutes = m, seconds = s}
+  
 
 polarToCartesian : Circle -> Angle -> Cartesian
 polarToCartesian { centerX, centerY, radius, offset} angle =
