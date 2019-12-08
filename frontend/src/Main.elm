@@ -191,16 +191,16 @@ requestHeading { dob, loc } =
 astroDataTables : HoroscopeResponse -> Html Msg
 astroDataTables { houseCusps, planetaryPositions } =
   let
-    aspects  = defaultAspects planetaryPositions
+    as_  = defaultAspects planetaryPositions
   in
   div []
     [ housesTable houseCusps
     , planetsTable planetaryPositions
-    , aspectsTable aspects
+    , aspectsTable as_
     ]
 
 aspectsTable : List (Maybe HoroscopeAspect) -> Html Msg
-aspectsTable aspects =
+aspectsTable as_ =
   let
       aspectRow asp =
         let
@@ -228,7 +228,7 @@ aspectsTable aspects =
             ]
         ]
     , tbody [] 
-        (List.foldl rowFolder [] aspects)
+        (List.foldl rowFolder [] as_)
     ]
   
 
@@ -554,7 +554,12 @@ type AspectName
   | Novile
   | Sesquisquare -- Trioctile
 
-type alias Aspect = { name : AspectName, maxOrb : Float, angle : Float}
+type AspectTemperament
+  = Analytical -- "Disharmonious"
+  | Synthetic  -- "Harmonious"
+  | Neutral
+
+type alias Aspect = { name : AspectName, maxOrb : Float, angle : Float, temperament : AspectTemperament}
 
 type alias HoroscopeAspect =
   {
@@ -576,22 +581,22 @@ type alias ZodiacSign =
 majorAspects : List Aspect
 majorAspects =
   [
-    {name = Conjunction, angle = 0.0, maxOrb = 10.0}
-  , {name = Sextile, angle = 60.0, maxOrb = 6.0 }
-  , {name = Square, angle = 90.0, maxOrb = 10.0}
-  , {name = Trine, angle = 120.0, maxOrb = 10.0}
-  , {name = Opposition, angle = 180.0, maxOrb = 10.0}
+    {name = Conjunction, angle = 0.0, maxOrb = 10.0, temperament = Synthetic}
+  , {name = Sextile, angle = 60.0, maxOrb = 6.0, temperament =  Synthetic }
+  , {name = Square, angle = 90.0, maxOrb = 10.0, temperament =  Analytical}
+  , {name = Trine, angle = 120.0, maxOrb = 10.0, temperament =  Synthetic}
+  , {name = Opposition, angle = 180.0, maxOrb = 10.0, temperament =  Analytical}
   ]
 
 minorAspects : List Aspect
 minorAspects =
   [ 
-    {name = SemiSquare, angle = 45.0, maxOrb = 3.0}
-  , {name = Sesquisquare, angle = 135.0, maxOrb = 3.0}
-  , {name = SemiSextile, angle = 30.0, maxOrb = 3.0}
-  , {name = Quincunx, angle = 150.0, maxOrb = 3.0}
-  , {name = Quintile, angle = 72.0, maxOrb = 2.0}
-  , {name = BiQuintile, angle = 144.0, maxOrb = 2.0}
+    {name = SemiSquare, angle = 45.0, maxOrb = 3.0, temperament = Analytical}
+  , {name = Sesquisquare, angle = 135.0, maxOrb = 3.0, temperament = Analytical}
+  , {name = SemiSextile, angle = 30.0, maxOrb = 3.0, temperament = Neutral}
+  , {name = Quincunx, angle = 150.0, maxOrb = 3.0, temperament = Neutral}
+  , {name = Quintile, angle = 72.0, maxOrb = 2.0, temperament = Synthetic}
+  , {name = BiQuintile, angle = 144.0, maxOrb = 2.0, temperament = Synthetic}
   ]
 
 westernSigns : List ZodiacSign
@@ -706,10 +711,10 @@ aspectsBetween possibleAspects (planetA, planetB) =
   
 
 calculateAspects : List Aspect -> List PlanetPosition -> List (Maybe HoroscopeAspect)
-calculateAspects aspects planetPositions =
+calculateAspects aspectList planetPositions =
   planetPositions
     |> inPairs
-    |> List.concatMap (aspectsBetween aspects)
+    |> List.concatMap (aspectsBetween aspectList)
 
 defaultAspects = calculateAspects (List.append majorAspects minorAspects)
 
@@ -721,18 +726,28 @@ chart {houseCusps, planetaryPositions} =
     r      = width * 0.42
     z      = 33.0 -- zodiac band thickness
     o      = ascendantAngle houseCusps |> Maybe.withDefault 0.0
-    container         = { centerX = center, centerY = center, radius = r, offset = (180 - o) }
-    housesOuterCircle = {container | radius = container.radius - z}
-    aspectsCircle     = {container | radius = container.radius - 3 * z}
-    aspects = defaultAspects planetaryPositions
+    container              = { centerX = center, centerY = center, radius = r, offset = (180 - o) }
+    housesOuterCircle      = {container | radius = container.radius - z}
+    aspectsOuterCircle     = {container | radius = container.radius - 3 * z}
+    calculatedAspects = defaultAspects planetaryPositions
   in
   svg
     [ SvgAttrs.width (String.fromFloat width), SvgAttrs.height (String.fromFloat width) ]
     [ g [SvgAttrs.id "radix"]
         [ zodiac  container housesOuterCircle
-        , houses  housesOuterCircle aspectsCircle houseCusps
+        , houses  housesOuterCircle aspectsOuterCircle houseCusps
         , planets container planetaryPositions
+        , aspects aspectsOuterCircle calculatedAspects
         ] 
+    ]
+
+aspectsCircle = housesCircle
+
+aspects : Circle -> List (Maybe HoroscopeAspect) -> Svg Msg
+aspects container aspectsData =
+  g [SvgAttrs.id "aspectsCircle"]
+    [ aspectsCircle container
+    , g [SvgAttrs.id "aspects"] (drawAspects container aspectsData)
     ]
 
 zodiac : Circle -> Circle -> Svg Msg
@@ -745,10 +760,8 @@ zodiac outer inner =
 houses : Circle -> Circle -> List HouseCusp -> Svg Msg
 houses outer inner housesData =
   g [SvgAttrs.id "housesCircle"]
-    [ housesCircle inner
-    , housesCircle outer
+    [ housesCircle outer
     , g [SvgAttrs.id "houses"] (drawHouses outer inner housesData)
-    --, g [SvgAttrs.id "ruler"]  (drawDegrees containerCircle (List.range 0 360))
     ]
 
 planets : Circle -> List PlanetPosition -> Svg Msg
@@ -773,6 +786,46 @@ drawPlanets c d = List.map (drawPlanet c) d
 
 drawHouses : Circle -> Circle -> List HouseCusp -> List (Svg Msg)
 drawHouses c c_ d = List.map (drawHouse c c_) d
+
+drawAspects : Circle -> List (Maybe HoroscopeAspect) -> List (Svg Msg)
+drawAspects c d = 
+  let
+      -- TODO: promote this to a `dropNils` fn??
+      aspectFolder : Maybe HoroscopeAspect -> List HoroscopeAspect -> List HoroscopeAspect
+      aspectFolder x acc =
+        case x of
+            Nothing -> acc
+            Just a  -> a :: acc              
+  in
+  List.foldl aspectFolder [] d
+    |> List.map (drawAspect c)
+
+drawAspect : Circle -> HoroscopeAspect -> Svg Msg
+drawAspect container aspect =
+  let
+      (a, b) = aspect.planets
+      longitudeA = -a.position.long
+      longitudeB = -b.position.long
+  in
+  
+  g []
+    [ Svg.path 
+        [ d (lineBetweenAngles container longitudeA longitudeB)
+        , fill "none"
+        , strokeWidth "3"
+        , stroke (Color.toCssString <| aspectColor aspect.aspect)
+        ]
+        []
+    ]
+
+-- See: https://www.astro.com/faq/fq_fh_design_e.htm
+aspectColor : Aspect -> Color
+aspectColor a =
+  case a.temperament of
+      Analytical -> Color.darkRed
+      Synthetic  -> Color.darkBlue          
+      Neutral    -> Color.lightGreen
+          
 {- 
 drawDegrees : Circle -> List Int -> List (Svg Msg)
 drawDegrees c d = List.map (drawDegree c) d
@@ -895,7 +948,19 @@ elementColor element =
         Water -> Color.lightBlue
   in
   Color.toCssString color
-        
+
+lineBetweenAngles : Circle -> Float -> Float -> String
+lineBetweenAngles container startAngle endAngle =
+  let
+      start = polarToCartesian container startAngle
+      end   = polarToCartesian container endAngle
+      elements = 
+        [ "M", String.fromFloat start.x, String.fromFloat start.y
+        , "L", String.fromFloat end.x, String.fromFloat end.y
+        ]
+  in
+  String.join " " elements
+  
 
 -- from: https://stackoverflow.com/a/43211655
 buildSlicePath : Circle -> Float -> Float -> Float -> String
