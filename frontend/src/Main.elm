@@ -742,11 +742,16 @@ zodiac containerCircle =
 houses : Circle -> List HouseCusp -> Svg Msg
 houses container housesData =
   let
-      containerCircle = { container | radius = container.radius - 33}
+    -- TODO: warning, magic number! This 33 is the same as the zodiac's signBandThickness!
+    zodiacBandThickness = 33.0
+    containerCircle = { container | radius = container.radius - zodiacBandThickness }
+    housesOuterCircle = containerCircle
+    housesInnerCircle  = {container | radius = container.radius - 3 * zodiacBandThickness}
   in
   g [SvgAttrs.id "housesCircle"]
-    [ housesCircle containerCircle
-    , g [SvgAttrs.id "houses"] (drawHouses  containerCircle housesData)
+    [ housesCircle housesInnerCircle
+    , housesCircle housesOuterCircle
+    , g [SvgAttrs.id "houses"] (drawHouses housesOuterCircle housesInnerCircle housesData)
     --, g [SvgAttrs.id "ruler"]  (drawDegrees containerCircle (List.range 0 360))
     ]
 
@@ -770,9 +775,9 @@ housesCircle {centerX, centerY, radius} =
 drawPlanets : Circle -> List PlanetPosition -> List (Svg Msg)
 drawPlanets c d = List.map (drawPlanet c) d
 
-drawHouses : Circle -> List HouseCusp -> List (Svg Msg)
-drawHouses c d = List.map (drawHouse c) d
-
+drawHouses : Circle -> Circle -> List HouseCusp -> List (Svg Msg)
+drawHouses c c_ d = List.map (drawHouse c c_) d
+{- 
 drawDegrees : Circle -> List Int -> List (Svg Msg)
 drawDegrees c d = List.map (drawDegree c) d
 
@@ -781,13 +786,29 @@ drawDegree container dg =
   g []
     [ Svg.path [d (drawLinePath container (toFloat dg) (0.128*1.5)), fill "none", strokeWidth "1", stroke (Color.toCssString Color.lightGray)] []
     , drawTextAtDegree container (String.fromInt dg)  "font: italic 2px serif; fill: #222;" -(toFloat dg)
-    ]
+    ] -}
 
-drawHouse : Circle -> HouseCusp -> Svg Msg
-drawHouse container {house, cusp} =
+houseLineLength : House -> Circle -> Circle -> Float
+houseLineLength house outer inner =
+  case (List.member house [I, IV, VII, X]) of
+      True -> outer.radius
+      False -> outer.radius - inner.radius
+          
+
+drawHouse : Circle -> Circle -> HouseCusp -> Svg Msg
+drawHouse outer inner {house, cusp} =
+  let
+      houseTextStyle h =
+        -- show a more prominent text for the Ascendant and MC:
+        case (List.member h [I, X]) of
+            True ->
+              "font: 10px sans-serif; fill: " ++ (Color.toCssString Color.darkCharcoal) ++ ";"
+            False ->
+              "font: italic 10px serif; fill: " ++ (Color.toCssString Color.darkGreen) ++ ";"
+  in
   g [SvgAttrs.id (Debug.toString house)] 
-    [ Svg.path [d (drawLinePath container -cusp (0.128*2.0)), fill "none", strokeWidth "2", stroke (Color.toCssString Color.black) ] []
-    , drawTextAtDegree container (houseText house)  "font: italic 15px serif; fill: #333;" -(cusp+8.5)
+    [ Svg.path [d (drawRadialLine outer -cusp (houseLineLength house outer inner)), fill "none", strokeWidth "2", stroke (Color.toCssString Color.lightCharcoal) ] []
+    , drawTextAtDegree outer (houseText house) (houseTextStyle house) -(cusp+5)
     ]
 
 drawPlanet container {planet, position} =
@@ -803,12 +824,17 @@ zodiacSigns c = List.map (zodiacSign c) westernSigns
 
 zodiacSign : Circle -> ZodiacSign -> Svg Msg
 zodiacSign container sign =
+  let
+      signLengthInDegrees = 30.0
+      signBandThickness   = 33
+  in
+  
   g []
    [ 
-      Svg.path [d (buildSlicePath container 30.0 0.125 (-sign.longitude)), fill (elementColor sign.element), strokeWidth "0", stroke "none"] []
+      Svg.path [d (buildSlicePath container signLengthInDegrees signBandThickness (-sign.longitude)), fill (elementColor sign.element), strokeWidth "0", stroke "none"] []
     , signGlyph 
         container
-        { sign | longitude = -(sign.longitude + 15.0) }
+        { sign | longitude = -(sign.longitude + (signLengthInDegrees / 2)) }
    ]
 
 planetText : Planet -> String
@@ -833,10 +859,18 @@ houseText : House -> String
 houseText h =
   case h of
       I -> "ASC"
-      IV -> "IC"
-      VII -> "DSC"
+      II -> "2"
+      III -> "3"
+      IV -> "4"
+      V  -> "5"
+      VI -> "6"
+      VII -> "7"
+      VIII -> "8"
+      IX -> "9"
       X -> "MC"
-      _ -> Debug.toString h
+      XI -> "11"
+      XII -> "12"
+      UnknownCusp -> ""
           
 
 -- Helper functions for the crazy math
@@ -869,12 +903,11 @@ elementColor element =
 
 -- from: https://stackoverflow.com/a/43211655
 buildSlicePath : Circle -> Float -> Float -> Float -> String
-buildSlicePath containerCircle length spreadRatio longitude =
+buildSlicePath containerCircle length thickness longitude =
   let
       endAngle = longitude
       startAngle = longitude - length
-      spread     = containerCircle.radius * spreadRatio
-      innerCircle = {containerCircle | radius = containerCircle.radius - spread}
+      innerCircle = {containerCircle | radius = containerCircle.radius - thickness}
       innerStart = polarToCartesian innerCircle endAngle
       innerEnd   = polarToCartesian innerCircle startAngle
       outerStart = polarToCartesian containerCircle endAngle
@@ -894,12 +927,11 @@ buildSlicePath containerCircle length spreadRatio longitude =
   in
   String.join " " elements
   
-drawLinePath : Circle -> Float -> Float -> String
-drawLinePath containerCircle longitude lineLength =
+drawRadialLine : Circle -> Float -> Float -> String
+drawRadialLine containerCircle longitude lineLength =
   let
       startAngle = longitude
-      spread     = containerCircle.radius * lineLength
-      innerCircle = {containerCircle | radius = containerCircle.radius - spread}
+      innerCircle = {containerCircle | radius = containerCircle.radius - lineLength}
       innerEnd   = polarToCartesian innerCircle startAngle
       outerEnd   = polarToCartesian containerCircle startAngle
       elements = 
