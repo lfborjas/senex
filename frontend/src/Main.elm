@@ -911,9 +911,14 @@ drawHouse outer inner {house, cusp} =
     , drawTextAtDegree outer (houseText house) (houseTextStyle house) -(cusp+5)
     ]
 
-drawPlanet container {planet, position} =
-  g []
-    [ drawTextAtDegree container (planetText planet) "font: 15px sans-serif; fill: #666;" -position.long ]
+drawPlanet container planetPosition =
+  let
+      drawing = 
+        case (List.member planetPosition.planet [Chiron, Lilith]) of
+          True  -> planetGlyph container planetPosition
+          False -> drawTextAtDegree container (planetText planetPosition.planet) "font: 15px sans-serif; fill: black;" -planetPosition.position.long 
+  in
+  g [] [ drawing]
 
 zodiacCircle : Circle -> Svg Msg
 zodiacCircle {centerX, centerY, radius} =
@@ -1132,7 +1137,6 @@ signGlyph : Circle -> ZodiacSign -> Svg Msg
 signGlyph  container {name, longitude, element} =
   let
     inner = { container | radius = container.radius - 18.0 }
-    loc = polarToCartesian inner longitude
     size = 20.0
     svgName = 
       case name of
@@ -1149,6 +1153,40 @@ signGlyph  container {name, longitude, element} =
         Aquarius -> "Aquarius.svg#svg668"
         Pisces -> "Pisces.svg#svg674"
     svgPath = "/assets/img/" ++ svgName
+  in
+  drawGlyphAtDegree inner longitude svgPath size 
+
+planetGlyph : Circle -> PlanetPosition -> Svg Msg
+planetGlyph container {planet, position} =
+  let
+      inner = { container | radius = container.radius - 18.0 * 3.0 }
+      size = 15.0
+      svgName =
+        case planet of
+            Sun -> "Sun.svg#svg1"
+            Moon -> "Moon.svg#svg1"
+            Mercury -> "Mercury.svg#svg1"
+            Venus -> "Venus.svg#svg1"
+            Mars -> "Mars.svg#svg1"
+            Jupiter -> "Jupiter.svg#svg1"
+            Saturn -> "Saturn.svg#svg1"
+            Uranus -> "Uranus.svg#svg1"
+            Neptune -> "Neptune.svg#svg1"
+            Pluto -> "Pluto.svg#svg1"
+            Lilith -> "Lilith.svg#svg1"
+            MeanNode -> "MeanNode.svg#svg2"
+            Chiron -> "Chiron.svg#svg2"
+            _ -> "" -- TODO: handle this better?
+      svgPath = "/assets/img/" ++ svgName
+  in
+  -- TODO: yet another weird negated angle, centralize this!
+  drawGlyphAtDegree inner -position.long svgPath size
+  
+
+drawGlyphAtDegree : Circle -> Angle -> String -> Float -> Svg Msg
+drawGlyphAtDegree circle angle svgPath size =
+  let
+    loc = polarToCartesian circle angle
   in
   Svg.use 
     [ SvgAttrs.xlinkHref svgPath
