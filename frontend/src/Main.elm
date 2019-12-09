@@ -186,7 +186,8 @@ viewChart {horoscopeRequest, horoscopeResponse, horoscopeAspects} =
             Success entered data ->
               Grid.container []
                 [ --button [ Evts.onClick NewHoroscope ] [ Html.text "New Horoscope" ]
-                  Grid.row [] [ Grid.col [] [ requestHeading entered ] ]
+                 -- Grid.row [] [ Grid.col [] [ requestHeading entered ] ]
+                  Grid.row [] [ Grid.col [] []]
                 , Grid.row []
                   [
                     Grid.col [] [chart data (aspectsList horoscopeAspects)]
@@ -270,7 +271,7 @@ planetsTable positions =
           [ Table.th [] [ Html.text "Planet" ]
           , Table.th [] [ Html.text "Longitude" ]
           ]
-      , tbody = Table.tbody [] <| List.map planetRow positions
+      , tbody = Table.tbody [] <| List.map planetRow <| filterPlanets defaultPlanets positions
       }
 
 
@@ -289,9 +290,30 @@ houseRow { house, cusp } =
         , Table.td [Table.cellAttr <| Attrs.title <| String.fromFloat cusp] [ Html.text <| longitudeText cusp ]
         ]
 
+cuspValue : HouseCusp -> Int
+cuspValue hc =
+  case hc.house of
+      I -> 1
+      II -> 2
+      III -> 3
+      IV -> 4
+      V -> 5
+      VI -> 6
+      VII -> 7
+      VIII -> 8
+      IX -> 9
+      X -> 10
+      XI -> 11
+      XII -> 12
+      UnknownCusp -> 13
+          
 
 housesTable : List HouseCusp -> Html Msg
 housesTable cusps =
+    let
+        sortCusps = List.sortBy cuspValue
+    in
+    
     Table.table
       {
         options = [Table.striped, Table.hover, Table.small, Table.bordered]
@@ -300,7 +322,7 @@ housesTable cusps =
             Table.th [] [ Html.text "House" ]
           , Table.th [] [ Html.text "Longitude"]
           ]
-      , tbody = Table.tbody [] <| List.map houseRow cusps
+      , tbody = Table.tbody [] <| List.map houseRow <| sortCusps cusps
       }
 
 
