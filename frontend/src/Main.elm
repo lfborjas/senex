@@ -19,6 +19,9 @@ import Color exposing (Color)
 import Bootstrap.CDN as CDN
 import Bootstrap.Grid as Grid
 import Bootstrap.Navbar as Navbar
+import Bootstrap.Spinner as Spinner
+import Bootstrap.Text as Text
+import Bootstrap.Table as Table
 
 
 {-
@@ -173,7 +176,7 @@ viewChart {horoscopeRequest, horoscopeResponse, horoscopeAspects} =
       Just fetchData ->
         case fetchData of
             Loading ->
-              div [] [Html.text "Loading..."]
+              div [] [ Spinner.spinner [Spinner.color Text.info] []]
             Failure r ->
               div []
                 [ Html.text "Unable to load data"
@@ -181,11 +184,15 @@ viewChart {horoscopeRequest, horoscopeResponse, horoscopeAspects} =
                 ]
         
             Success entered data ->
-              div []
+              Grid.container []
                 [ --button [ Evts.onClick NewHoroscope ] [ Html.text "New Horoscope" ]
-                  requestHeading entered
-                , chart data (aspectsList horoscopeAspects)
-                , astroDataTables data (aspectsList horoscopeAspects)
+                  Grid.row [] [ Grid.col [] [ requestHeading entered ] ]
+                , Grid.row []
+                  [
+                    Grid.col [] [chart data (aspectsList horoscopeAspects)]
+                  , Grid.col [] [ astroDataTables data ] 
+                  ]
+                , Grid.row [] [ Grid.col [] [ aspectsTable <| aspectsList horoscopeAspects ]]
                 ]
 
 aspectsList : Maybe AspectsList -> AspectsList
@@ -198,20 +205,19 @@ requestHeading : HoroscopeRequest -> Html Msg
 requestHeading { dob, loc } =
     h2 []
         [ Html.text
-            ("Ephemerides for "
+            ("Natal Chart for "
                 ++ Maybe.withDefault "" dob
-                ++ " at "
+                ++ " in "
                 ++ Maybe.withDefault "" loc
             )
         ]
 
 
-astroDataTables : HoroscopeResponse -> AspectsList -> Html Msg
-astroDataTables { houseCusps, planetaryPositions } as_ =
+astroDataTables : HoroscopeResponse -> Html Msg
+astroDataTables { houseCusps, planetaryPositions } =
   div []
     [ housesTable houseCusps
     , planetsTable planetaryPositions
-    , aspectsTable as_
     ]
 
 bodyName : Ecliptic -> String
@@ -257,46 +263,45 @@ aspectsTable as_ =
 
 planetsTable : List PlanetPosition -> Html Msg
 planetsTable positions =
-    table []
-        [ thead []
-            [ tr []
-                [ th [] [ Html.text "Planet" ]
-                , th [] [ Html.text "Position" ]
-                ]
-            ]
-        , tbody []
-            (List.map planetRow positions)
-        ]
+    Table.table
+      {
+        options = [Table.striped, Table.hover, Table.small, Table.bordered]
+      , thead = Table.simpleThead
+          [ Table.th [] [ Html.text "Planet" ]
+          , Table.th [] [ Html.text "Longitude" ]
+          ]
+      , tbody = Table.tbody [] <| List.map planetRow positions
+      }
 
 
-planetRow : PlanetPosition -> Html Msg
+planetRow : PlanetPosition -> Table.Row Msg
 planetRow { planet, position } =
-    tr []
-        [ td [] [ Html.text <| Debug.toString planet ++ " (" ++ (planetText planet) ++ ")"]
-        , td [] [ Html.text <| (longitudeText position.long) ++ " (" ++ (String.fromFloat position.long) ++ ")" ]
+    Table.tr []
+        [ Table.td [] [ Html.text <| Debug.toString planet ++ " (" ++ (planetText planet) ++ ")"]
+        , Table.td [Table.cellAttr <| Attrs.title (String.fromFloat position.long) ] [ Html.text <| longitudeText position.long ]
         ]
 
 
-houseRow : HouseCusp -> Html Msg
+houseRow : HouseCusp -> Table.Row Msg
 houseRow { house, cusp } =
-    tr []
-        [ td [] [ Html.text <| Debug.toString house ]
-        , td [] [ Html.text <| (longitudeText cusp) ++ " (" ++ (String.fromFloat cusp) ++ ")" ]
+    Table.tr []
+        [ Table.td [] [ Html.text <| Debug.toString house ]
+        , Table.td [Table.cellAttr <| Attrs.title <| String.fromFloat cusp] [ Html.text <| longitudeText cusp ]
         ]
 
 
 housesTable : List HouseCusp -> Html Msg
 housesTable cusps =
-    table []
-        [ thead []
-            [ tr []
-                [ th [] [ Html.text "House" ]
-                , th [] [ Html.text "Position" ]
-                ]
-            ]
-        , tbody []
-            (List.map houseRow cusps)
-        ]
+    Table.table
+      {
+        options = [Table.striped, Table.hover, Table.small, Table.bordered]
+      , thead = Table.simpleThead
+          [
+            Table.th [] [ Html.text "House" ]
+          , Table.th [] [ Html.text "Longitude"]
+          ]
+      , tbody = Table.tbody [] <| List.map houseRow cusps
+      }
 
 
 
@@ -918,7 +923,7 @@ drawPlanet container planetPosition =
           True  -> planetGlyph container planetPosition
           False -> drawTextAtDegree container (planetText planetPosition.planet) "font: 15px sans-serif; fill: black;" -planetPosition.position.long 
   in
-  g [] [ drawing]
+  g [] [ drawing ]
 
 zodiacCircle : Circle -> Svg Msg
 zodiacCircle {centerX, centerY, radius} =
