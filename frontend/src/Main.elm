@@ -272,8 +272,8 @@ planetsTable positions =
 planetRow : PlanetPosition -> Html Msg
 planetRow { planet, position } =
     tr []
-        [ td [] [ Html.text <| Debug.toString planet ]
-        , td [] [ Html.text <| longitudeText position.long ]
+        [ td [] [ Html.text <| Debug.toString planet ++ " (" ++ (planetText planet) ++ ")"]
+        , td [] [ Html.text <| (longitudeText position.long) ++ " (" ++ (String.fromFloat position.long) ++ ")" ]
         ]
 
 
@@ -281,7 +281,7 @@ houseRow : HouseCusp -> Html Msg
 houseRow { house, cusp } =
     tr []
         [ td [] [ Html.text <| Debug.toString house ]
-        , td [] [ Html.text <| longitudeText cusp ]
+        , td [] [ Html.text <| (longitudeText cusp) ++ " (" ++ (String.fromFloat cusp) ++ ")" ]
         ]
 
 
@@ -737,14 +737,9 @@ haveAspect a b aspect =
     angle = (getEclipticLocation a) - (getEclipticLocation b)
     counterAngle = 360 - (abs angle)
     
-    aspectAngle = case (aspect.angle == 0.0) of
-        True  -> 360.0 -- lil trick to avoid division by zero when doing mod!
-        False -> aspect.angle
-
-    -- using floor to err on the side of caution, pessimistic about aspects!
-    orbCalc = abs >> ceiling >> modBy (floor aspectAngle) >> toFloat
+    orbCalc = (\x -> aspect.angle - (abs x))
     
-    angles = List.filter (\x -> (orbCalc x) <= aspect.maxOrb) [angle, counterAngle]
+    angles = List.filter (\x -> (x |> orbCalc |> abs) <= aspect.maxOrb) [angle, counterAngle]
 
   in
     case angles of
