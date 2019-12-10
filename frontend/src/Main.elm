@@ -226,11 +226,17 @@ bodyName a =
   case a of
       PlanetLocation x ->  planetText x.planet
       CuspLocation   x ->  houseText x.house
-          
 
-aspectsTable : List (Maybe HoroscopeAspect) -> Html Msg
+findAspect : (EclipticArchon, EclipticArchon) -> List (Maybe HoroscopeAspect) -> Maybe HoroscopeAspect
+findAspect (a,b) = Debug.todo "too sleepy"  
+
+aspectsTable : AspectsList -> Html Msg
 aspectsTable as_ =
   let
+      allArchons : List EclipticArchon
+      allArchons = List.append (List.map PlanetArchon defaultPlanets) (List.map HouseArchon defaultHouses)
+      matrix : List (EclipticArchon, EclipticArchon)
+      matrix = allArchons |> inPairs
       aspectRow asp =
         let
             (a, b) = asp.bodies
@@ -574,6 +580,10 @@ type Ecliptic
   = CuspLocation HouseCusp
   | PlanetLocation PlanetPosition
 
+type EclipticArchon
+  = HouseArchon House
+  | PlanetArchon Planet
+
 
 type ZodiacSignName
   = Aries
@@ -727,30 +737,12 @@ houseAngle h cusps =
 ascendantAngle = houseAngle I
 
 -- from: https://github.com/elm-community/list-extra/blob/36b63fc2ab1b1b602a30dbc71e9b829a0f325e21/src/List/Extra.elm
-select : List a -> List (a, List a)
-select xs =
-  case xs of
-      [] ->
-        []   
-  
-      x :: xs_ ->
-        (x, xs_) :: List.map (\(y, ys) -> (y, x :: ys)) (select xs_)
-
 inPairs : List a -> List (a, a)
 inPairs l =
-  let
-      mkPairs : (a, List a) -> List (a, a)
-      mkPairs (e, es) = List.foldl (\o acc -> (e, o) :: acc) [] es   
-      
-      dedupe : (a, a) -> List (a, a) -> List (a, a)
-      dedupe (x, y) acc =
-        case (List.member (y, x) acc) of
-          True -> acc
-          False -> (x, y) :: acc
-  in
-  select l
-    |> List.concatMap mkPairs
-    |> List.foldl dedupe []
+  case l of
+      [] -> []
+      x :: xs -> List.map (\y -> (x, y)) xs ++ inPairs xs
+          
 
 getEclipticLocation : Ecliptic -> Float
 getEclipticLocation eclipticBody =
