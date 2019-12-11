@@ -23,7 +23,7 @@ import Bootstrap.Navbar as Navbar
 import Bootstrap.Spinner as Spinner
 import Bootstrap.Text as Text
 import Bootstrap.Table as Table
-
+import Bootstrap.Grid.Col as Col
 
 {-
    Simple app to call our Haskell backend (see ../src/Api.hs for the API definition)
@@ -118,17 +118,16 @@ update msg model =
 
 deriveAspects : HoroscopeResponse -> AspectsList
 deriveAspects {houseCusps, planetaryPositions} =
-  let
-      planetLocations = planetaryPositions
-        |> filterPlanets defaultPlanets
-        |> List.map PlanetLocation
-      angleLocations = houseCusps
-        |> filterHouses defaultHouses
-        |> List.map CuspLocation
-  in
-  
-  defaultAspects <| List.append planetLocations angleLocations
+  defaultAspects <| combinePositions houseCusps planetaryPositions
 
+combinePositions : List HouseCusp -> List PlanetPosition -> List Ecliptic
+combinePositions hs ps =
+  let
+    pl = ps |> filterPlanets defaultPlanets |> List.map PlanetLocation
+    hl = hs |> filterHouses  defaultHouses  |> List.map CuspLocation    
+  in
+  List.append pl hl
+  
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Navbar.subscriptions model.navbarState NavbarMsg
@@ -192,9 +191,9 @@ viewChart {horoscopeRequest, horoscopeResponse, horoscopeAspects} =
                 , Grid.row []
                   [
                     Grid.col [] [chart data (aspectsList horoscopeAspects)]
-                  , Grid.col [] [ astroDataTables data ] 
+                  , Grid.col [Col.middleXs] [ astroDataTables data ] 
                   ]
-                , Grid.row [] [ Grid.col [] [ aspectsTable <| aspectsList horoscopeAspects ]]
+                , Grid.row [] [ Grid.col [] [ aspectsTable (aspectsList horoscopeAspects) (combinePositions data.houseCusps data.planetaryPositions) ]]
                 ]
 
 aspectsList : Maybe AspectsList -> AspectsList
@@ -219,7 +218,7 @@ astroDataTables : HoroscopeResponse -> Html Msg
 astroDataTables { houseCusps, planetaryPositions } =
   div []
     [ housesTable houseCusps
-    , planetsTable planetaryPositions
+    -- , planetsTable planetaryPositions
     ]
 
 bodyName : EclipticArchon -> String
@@ -291,17 +290,47 @@ findAspect aspect l =
   List.filter (isAspect aspect) l
     |> List.head
     |> Maybe.withDefault Nothing
-  
 
-aspectsTable : AspectsList -> Html Msg
-aspectsTable as_ =
+findArchon : EclipticArchon -> List Ecliptic -> Maybe Ecliptic
+findArchon a l =
+  let
+      compareHouse h x =
+        case x of
+            CuspLocation y -> y.house == h
+            PlanetLocation z -> False
+      
+      comparePlanet p x =
+        case x of
+            PlanetLocation y -> y.planet == p
+            CuspLocation   y -> False
+
+      finderFn =
+        case a of
+          HouseArchon house -> compareHouse house
+          PlanetArchon planet -> comparePlanet planet
+  in
+  List.filter finderFn l
+    |> List.head
+
+archonLongitude : EclipticArchon -> List Ecliptic -> Html Msg
+archonLongitude n ps_ =
+  let 
+    lng = findArchon n ps_
+    txt = 
+      case lng of
+        Nothing  -> ""
+        Just pos -> pos |> getEclipticLocation |> longitudeText
+  in 
+  Html.text <| txt ++ " "
+
+aspectsTable : AspectsList -> List Ecliptic -> Html Msg
+aspectsTable as_ ps_ =
   let
       allArchons : List EclipticArchon
       allArchons = List.append (List.map PlanetArchon defaultPlanets) (List.map HouseArchon defaultHouses)
       
       aspectCell : Html Msg -> Html Msg
       aspectCell ha = td [Attrs.style "border" "1px solid black"] [ha]
-
 
       aspectRow : EclipticArchon -> Html Msg
       aspectRow n =
@@ -317,7 +346,14 @@ aspectsTable as_ =
                   Just ao -> aspectMarkup ao
         in
         (List.concat
-          [ [ td [] [if (filteredArchons == []) then Html.text "" else archonMarkup n]]
+          [ [ td 
+                [ Attrs.style "border" "1px solid black"
+                , Attrs.style "background-color" (Color.toCssString Color.lightGray)
+                ]
+                [ archonLongitude n ps_
+                , archonMarkup n
+                ]
+            ]
           , (List.map (getAspectWith >> aspectCell) filteredArchons)
           , [ td [] [archonMarkup n]] 
           ]) |> tr []
