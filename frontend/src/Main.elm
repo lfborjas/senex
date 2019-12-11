@@ -260,7 +260,10 @@ aspectMarkup {aspect, bodies, angle, orb} =
             _           -> Html.text ""
   in
   -- TODO: more info here!
-  Html.span [Attrs.title <| String.fromFloat angle]
+  Html.span 
+    [ Attrs.title <| String.fromFloat angle
+    , Attrs.style "color" <| Color.toCssString <| aspectColor aspect
+    ]
     [ name_
     , Html.text " "
     , Html.text <| String.fromInt <| round orb 
