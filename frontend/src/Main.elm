@@ -12,6 +12,7 @@ import Json.Decode as Decode exposing (Decoder, andThen, field, float, keyValueP
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode as Encode
 import List as List
+import Dict exposing (Dict)
 import Maybe as Maybe exposing (..)
 import Result as Result
 import String as String
@@ -221,50 +222,61 @@ astroDataTables { houseCusps, planetaryPositions } =
     , planetsTable planetaryPositions
     ]
 
-bodyName : Ecliptic -> String
+bodyName : EclipticArchon -> String
 bodyName a =
   case a of
-      PlanetLocation x ->  planetText x.planet
-      CuspLocation   x ->  houseText x.house
+      PlanetArchon x ->  planetText x
+      HouseArchon  y ->  houseText  y
 
 findAspect : (EclipticArchon, EclipticArchon) -> List (Maybe HoroscopeAspect) -> Maybe HoroscopeAspect
-findAspect (a,b) = Debug.todo "too sleepy"  
+findAspect aspect l =
+  let
+      toArchon : Ecliptic -> EclipticArchon
+      toArchon e =
+        case e of
+            CuspLocation h -> HouseArchon h.house
+            PlanetLocation p -> PlanetArchon p.planet
+
+      compareAspects : (EclipticArchon, EclipticArchon) -> (EclipticArchon, EclipticArchon) -> Bool
+      compareAspects (a, b) (x, y) =
+        (a, b) == (y, x) -- || (a, b) == (y, x) ; TODO: we're losing some here
+
+      isAspect : (EclipticArchon, EclipticArchon) -> Maybe HoroscopeAspect -> Bool
+      isAspect (a, b) hAspect =
+        case hAspect of
+            Nothing -> False
+            Just xy -> compareAspects (a, b) (Tuple.mapBoth toArchon toArchon xy.bodies)
+  in
+  List.filter (isAspect aspect) l
+    |> List.head
+    |> Maybe.withDefault Nothing
+  
 
 aspectsTable : AspectsList -> Html Msg
 aspectsTable as_ =
   let
       allArchons : List EclipticArchon
       allArchons = List.append (List.map PlanetArchon defaultPlanets) (List.map HouseArchon defaultHouses)
-      matrix : List (EclipticArchon, EclipticArchon)
-      matrix = allArchons |> inPairs
-      aspectRow asp =
+      
+      aspectRow n =
         let
-            (a, b) = asp.bodies
-            absAngle = if (asp.angle < 0.0) then 360.0 - (abs asp.angle) else asp.angle
+          getAspectWith : EclipticArchon -> Html Msg
+          getAspectWith o =
+            if n == o then 
+              Html.text <| bodyName n
+            else 
+              case (findAspect (n, o) as_) of
+                  Nothing -> Html.text ""
+                  Just ao -> Html.text <| (Debug.toString ao.aspect.name) ++ (String.fromFloat ao.angle)
         in
-        
-        tr []
-          [ td [] [Html.text (Debug.toString asp.aspect.name)]
-          , td [] [Html.text <| "(" ++ (bodyName a) ++ ", " ++ (bodyName b) ++ ")"]
-          , td [] [Html.text <| String.fromFloat absAngle ]
-          , td [] [Html.text <| String.fromFloat asp.orb]
-          ]
-      rowFolder r rows =
-        case r of
-            Nothing -> rows
-            Just a -> (aspectRow a) :: rows
+        (List.append
+          [ td [] [Html.text <| bodyName n]]
+          (List.map (getAspectWith >> (\ha -> td [] [ha])) allArchons)) |> tr []
+
   in
   table []
-    [ thead []
-        [ tr []
-            [ th [] [Html.text "Aspect"]
-            , th [] [Html.text "Planets"]
-            , th [] [Html.text "Angle"]
-            , th [] [Html.text "Orb"]
-            ]
-        ]
-    , tbody [] 
-        (List.foldl rowFolder [] as_)
+    [ tbody [] 
+        (List.map aspectRow allArchons)
     ]
   
 
