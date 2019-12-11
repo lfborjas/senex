@@ -228,6 +228,19 @@ bodyName a =
       PlanetArchon x ->  planetText x
       HouseArchon  y ->  houseText  y
 
+archonMarkup : EclipticArchon -> Html Msg
+archonMarkup a =
+  case a of
+      PlanetArchon x -> planetMarkup x
+      HouseArchon  y -> Html.text <| houseText y
+
+planetMarkup : Planet -> Html Msg
+planetMarkup p =
+  case p of
+      Lilith -> externalSvg "Lilith.svg#svg1" 15
+      Chiron -> externalSvg "Chiron.svg#svg2" 15
+      _      -> Html.text <| planetText p
+
 findAspect : (EclipticArchon, EclipticArchon) -> List (Maybe HoroscopeAspect) -> Maybe HoroscopeAspect
 findAspect aspect l =
   let
@@ -264,16 +277,16 @@ aspectsTable as_ =
           getAspectWith : EclipticArchon -> Html Msg
           getAspectWith o =
             if n == o then 
-              Html.text <| bodyName n
+              archonMarkup n
             else 
               case (findAspect (n, o) as_) of
                   Nothing -> Html.text ""
                   Just ao -> Html.text <| (Debug.toString ao.aspect.name) ++ (String.fromFloat ao.angle)
         in
         (List.concat
-          [ [ td [] [if (filteredArchons == []) then Html.text "" else Html.text <| bodyName n]]
+          [ [ td [] [if (filteredArchons == []) then Html.text "" else archonMarkup n]]
           , (List.map (getAspectWith >> (\ha -> td [] [ha])) filteredArchons)
-          , [ td [] [Html.text <| bodyName n]] 
+          , [ td [] [archonMarkup n]] 
           ]) |> tr []
 
   in
@@ -1222,6 +1235,25 @@ drawGlyphAtDegree circle angle svgPath size =
     , SvgAttrs.y <| String.fromFloat (loc.y-size/2)
     ]
     []
+
+externalSvg : String -> Float -> Html Msg
+externalSvg nameAndId size =
+  let
+      use_  =
+        Svg.use
+          [ SvgAttrs.xlinkHref ("/assets/img/" ++ nameAndId)
+          , SvgAttrs.width  <| String.fromFloat (size)
+          , SvgAttrs.height <| String.fromFloat (size)
+          ]
+          []
+  in
+  Svg.svg 
+    [ SvgAttrs.width  <| String.fromFloat size
+    , SvgAttrs.height <| String.fromFloat size
+    ]
+    [use_]
+  
+
 
 {- References:
 https://cdn.rawgit.com/Kibo/AstroChart/master/project/examples/radix/radix_2016_11_15.html
