@@ -252,6 +252,7 @@ aspectMarkup {aspect, bodies, angle, orb} =
             Trine       -> Html.text "△"
             Opposition  -> Html.text "☍"
             SemiSquare  -> Html.text "∠"
+            Sesquisquare -> Html.text "□∠" -- TODO: get an SVG
             SemiSextile -> externalSvg "SemiSextile.svg#svg1" 15
             Quincunx    -> externalSvg "Quincunx.svg#svg1" 15
             Quintile    -> Html.text "Q"
@@ -295,6 +296,11 @@ aspectsTable as_ =
       allArchons : List EclipticArchon
       allArchons = List.append (List.map PlanetArchon defaultPlanets) (List.map HouseArchon defaultHouses)
       
+      aspectCell : Html Msg -> Html Msg
+      aspectCell ha = td [Attrs.style "border" "1px solid black"] [ha]
+
+
+      aspectRow : EclipticArchon -> Html Msg
       aspectRow n =
         let
           filteredArchons = takeWhile (not << ((==) n)) allArchons
@@ -309,12 +315,12 @@ aspectsTable as_ =
         in
         (List.concat
           [ [ td [] [if (filteredArchons == []) then Html.text "" else archonMarkup n]]
-          , (List.map (getAspectWith >> (\ha -> td [] [ha])) filteredArchons)
+          , (List.map (getAspectWith >> aspectCell) filteredArchons)
           , [ td [] [archonMarkup n]] 
           ]) |> tr []
 
   in
-  table []
+  table [Attrs.style "width" "100%"]
     [ tbody [] 
         (List.map aspectRow allArchons)
     ]
