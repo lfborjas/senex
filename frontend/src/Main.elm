@@ -241,6 +241,30 @@ planetMarkup p =
       Chiron -> externalSvg "Chiron.svg#svg2" 15
       _      -> Html.text <| planetText p
 
+aspectMarkup : HoroscopeAspect -> Html Msg
+aspectMarkup {aspect, bodies, angle, orb} =
+  let
+      name_ =
+        case aspect.name of
+            Conjunction -> Html.text "☌"
+            Sextile     -> externalSvg "Sextile.svg#svg1" 15
+            Square      -> Html.text "□"
+            Trine       -> Html.text "△"
+            Opposition  -> Html.text "☍"
+            SemiSquare  -> Html.text "∠"
+            SemiSextile -> externalSvg "SemiSextile.svg#svg1" 15
+            Quincunx    -> externalSvg "Quincunx.svg#svg1" 15
+            Quintile    -> Html.text "Q"
+            BiQuintile  -> Html.text "bQ"
+            _           -> Html.text ""
+  in
+  -- TODO: more info here!
+  Html.span [Attrs.title <| String.fromFloat angle]
+    [ name_
+    , Html.text " "
+    , Html.text <| String.fromInt <| round orb 
+    ]
+
 findAspect : (EclipticArchon, EclipticArchon) -> List (Maybe HoroscopeAspect) -> Maybe HoroscopeAspect
 findAspect aspect l =
   let
@@ -281,7 +305,7 @@ aspectsTable as_ =
             else 
               case (findAspect (n, o) as_) of
                   Nothing -> Html.text ""
-                  Just ao -> Html.text <| (Debug.toString ao.aspect.name) ++ (String.fromFloat ao.angle)
+                  Just ao -> aspectMarkup ao
         in
         (List.concat
           [ [ td [] [if (filteredArchons == []) then Html.text "" else archonMarkup n]]
