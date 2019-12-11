@@ -12,7 +12,7 @@ import Json.Decode as Decode exposing (Decoder, andThen, field, float, keyValueP
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode as Encode
 import List as List
-import Dict exposing (Dict)
+import List.Extra exposing (uniquePairs, takeWhile)
 import Maybe as Maybe exposing (..)
 import Result as Result
 import String as String
@@ -239,7 +239,7 @@ findAspect aspect l =
 
       compareAspects : (EclipticArchon, EclipticArchon) -> (EclipticArchon, EclipticArchon) -> Bool
       compareAspects (a, b) (x, y) =
-        (a, b) == (y, x) -- || (a, b) == (y, x) ; TODO: we're losing some here
+        (a, b) == (y, x) || (a, b) == (y, x)
 
       isAspect : (EclipticArchon, EclipticArchon) -> Maybe HoroscopeAspect -> Bool
       isAspect (a, b) hAspect =
@@ -260,6 +260,7 @@ aspectsTable as_ =
       
       aspectRow n =
         let
+          filteredArchons = takeWhile (not << ((==) n)) allArchons
           getAspectWith : EclipticArchon -> Html Msg
           getAspectWith o =
             if n == o then 
@@ -269,9 +270,11 @@ aspectsTable as_ =
                   Nothing -> Html.text ""
                   Just ao -> Html.text <| (Debug.toString ao.aspect.name) ++ (String.fromFloat ao.angle)
         in
-        (List.append
-          [ td [] [Html.text <| bodyName n]]
-          (List.map (getAspectWith >> (\ha -> td [] [ha])) allArchons)) |> tr []
+        (List.concat
+          [ [ td [] [if (filteredArchons == []) then Html.text "" else Html.text <| bodyName n]]
+          , (List.map (getAspectWith >> (\ha -> td [] [ha])) filteredArchons)
+          , [ td [] [Html.text <| bodyName n]] 
+          ]) |> tr []
 
   in
   table []
@@ -748,14 +751,6 @@ houseAngle h cusps =
 
 ascendantAngle = houseAngle I
 
--- from: https://github.com/elm-community/list-extra/blob/36b63fc2ab1b1b602a30dbc71e9b829a0f325e21/src/List/Extra.elm
-inPairs : List a -> List (a, a)
-inPairs l =
-  case l of
-      [] -> []
-      x :: xs -> List.map (\y -> (x, y)) xs ++ inPairs xs
-          
-
 getEclipticLocation : Ecliptic -> Float
 getEclipticLocation eclipticBody =
   case eclipticBody of
@@ -795,7 +790,7 @@ aspectsBetween possibleAspects (planetA, planetB) =
 calculateAspects : List Aspect -> List Ecliptic -> List (Maybe HoroscopeAspect)
 calculateAspects aspectList planetPositions =
   planetPositions
-    |> inPairs
+    |> uniquePairs
     |> List.concatMap (aspectsBetween aspectList)
 
 defaultAspects : List Ecliptic -> List (Maybe HoroscopeAspect)
