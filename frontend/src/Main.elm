@@ -330,7 +330,7 @@ aspectsTable as_ ps_ =
       allArchons = List.append (List.map PlanetArchon defaultPlanets) (List.map HouseArchon defaultHouses)
       
       aspectCell : Html Msg -> Html Msg
-      aspectCell ha = td [Attrs.style "border" "1px solid black"] [ha]
+      aspectCell ha = td [Attrs.style "border" "1px solid #dee2e6"] [ha]
 
       aspectRow : EclipticArchon -> Html Msg
       aspectRow n =
@@ -347,19 +347,17 @@ aspectsTable as_ ps_ =
         in
         (List.concat
           [ [ td 
-                [ Attrs.style "border" "1px solid black"
-                , Attrs.style "background-color" (Color.toCssString Color.lightGray)
-                ]
+                [ Attrs.style "border" "1px solid #dee2e6"]
                 [ archonLongitude n ps_
                 , archonMarkup n
                 ]
             ]
           , (List.map (getAspectWith >> aspectCell) filteredArchons)
-          , [ td [] [archonMarkup n]] 
+          , [ td [Attrs.style "background-color" "white"] [archonMarkup n]] 
           ]) |> tr []
 
   in
-  table [Attrs.style "width" "100%"]
+  table [Attrs.style "width" "100%", Attrs.class "table-striped", Attrs.class "table-hover"]
     [ tbody [] 
         (List.map aspectRow allArchons)
     ]
