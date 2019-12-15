@@ -2,28 +2,22 @@
 {-# LANGUAGE DuplicateRecordFields  #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# Language RankNTypes, ScopedTypeVariables #-}
 
 module Geo where
 
-import           Control.Lens               (traverse, (&), (.~), (<&>), (?~),
-                                            (^.), (^..))
-
+import           Control.Lens               ((&), (.~), (^.))
 import           Data.Aeson
 import Data.Aeson.Casing (snakeCase)
 import Data.Aeson.TH
-import qualified Data.Aeson.Types as DT
 import Data.Scientific
-import Data.Text (Text, unpack)
+import Data.Text (Text, pack, unpack)
 import GHC.Generics
 import qualified Network.Wreq as W
-import System.IO
-
--- inspired by: 
--- https://github.com/gvolpe/exchange-rates/blob/26edcc057ab2658e28aafccfc2d65a8f0d0c42a5/src/Http/Client/Forex.hs
+import Data.Time
+import Data.Time.Clock.POSIX
 
 googleApiBase :: Text
 googleApiBase = "https://maps.googleapis.com/maps/api"
@@ -117,6 +111,31 @@ instance FromJSON PlaceDetails where
 instance ToJSON PlaceDetails where
     toJSON = genericToJSON defaultOptions  {fieldLabelModifier = drop 1}
 
+
+{- TimeZone types -}
+
+data TimeZoneInfo = TimeZoneInfo
+    { _status :: GoogleApiStatus
+    , _dstOffset :: Int
+    , _rawOffset :: Int
+    , _timeZoneId :: Text
+    , _timeZoneName :: Text
+    } deriving (Show, Generic)
+
+instance FromJSON TimeZoneInfo where
+    parseJSON = withObject "TimeZoneInfo" $ \o -> do
+        statusString <- o .: "status"
+        os           <- o .: "dstOffset"
+        r            <- o .: "rawOffset"
+        tid          <- o .: "timeZoneId"
+        tn           <- o .: "timeZoneName"
+
+        let s = statusFromString statusString
+        return $ TimeZoneInfo s os r tid tn
+
+instance ToJSON TimeZoneInfo where
+    toJSON = genericToJSON defaultOptions { fieldLabelModifier = drop 1}
+
 {- Google Places Autocomplete
 https://developers.google.com/places/web-service/autocomplete
 
@@ -157,6 +176,42 @@ placeDetailsRequest token placeID =
         opts = W.defaults & t & q & f
     in
     makeRequest opts url
+
+{- TimeZone Api Request
+https://developers.google.com/maps/documentation/timezone/intro#Requests
+
+Example interaction
+
+> t <- getCurrentTime
+2019-12-15 19:53:03.955109 UTC
+> resp <- timeZoneRequest t (PlaceCoordinates 40.7834345 (-73.9662495))
+> zonedTime resp t
+2019-12-15 14:53:04 UTC
+
+Further reference:
+http://hackage.haskell.org/package/time-1.9.3/docs/Data-Time-Clock-POSIX.html
+https://two-wrongs.com/haskell-time-library-tutorial
+-}
+
+-- | From: https://stackoverflow.com/questions/4194340/is-there-a-better-way-to-convert-from-utctime-to-epochtime
+toUnixTime :: UTCTime -> Int
+toUnixTime = round . utcTimeToPOSIXSeconds
+
+zonedTime :: TimeZoneInfo -> UTCTime -> UTCTime
+zonedTime r t = posixSecondsToUTCTime corrected
+    where corrected = realToFrac $ (toUnixTime t) + (_dstOffset r) + (_rawOffset r)
+
+timeZoneRequest :: UTCTime -> PlaceCoordinates -> IO TimeZoneInfo
+timeZoneRequest time place =
+    let url = googleApiBase <> "/timezone/json"
+        q   = W.param "location" .~ [pack $ show (_lat place) <> "," <> show (_lng place)]
+        p   = W.param "timestamp" .~ [pack $ show (toUnixTime time)]
+        opts = W.defaults & q & p
+    in
+    makeRequest opts url
+
+-- inspired by: 
+-- https://github.com/gvolpe/exchange-rates/blob/26edcc057ab2658e28aafccfc2d65a8f0d0c42a5/src/Http/Client/Forex.hs
 
 makeRequest :: forall a . FromJSON a => W.Options -> Text -> IO a
 makeRequest opts url =
