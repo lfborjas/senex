@@ -78,6 +78,45 @@ instance FromJSON Autocomplete where
 instance ToJSON Autocomplete where
     toJSON = genericToJSON defaultOptions {fieldLabelModifier = drop 1}
 
+{- | Types for Place Details -}
+
+data PlaceCoordinates = PlaceCoordinates
+    { _lat :: Scientific
+    , _lng :: Scientific
+    } deriving (Show, Generic)
+
+deriveJSON defaultOptions { fieldLabelModifier = snakeCase . drop 1 } ''PlaceCoordinates
+
+data PlaceGeometry = PlaceGeometry
+    { _location :: PlaceCoordinates
+    } deriving (Show, Generic)
+
+deriveJSON defaultOptions { fieldLabelModifier = snakeCase . drop 1 } ''PlaceGeometry
+
+data PlaceDetailsResult = PlaceDetailsResult
+    { _name :: Text
+    , _geometry :: PlaceGeometry
+    , _formattedAddress :: Text
+    } deriving (Show, Generic)
+
+deriveJSON defaultOptions{ fieldLabelModifier = snakeCase . drop 1} ''PlaceDetailsResult
+
+data PlaceDetails = PlaceDetails
+    { _status :: GoogleApiStatus
+    , _result :: PlaceDetailsResult
+    } deriving (Show, Generic)
+
+instance FromJSON PlaceDetails where
+    parseJSON = withObject "PlaceDetails" $ \o -> do
+        statusString <- o .: "status"
+        r            <- o .: "result"
+
+        let s = statusFromString statusString
+        return $ PlaceDetails s r
+
+instance ToJSON PlaceDetails where
+    toJSON = genericToJSON defaultOptions  {fieldLabelModifier = drop 1}
+
 {- Google Places Autocomplete
 https://developers.google.com/places/web-service/autocomplete
 
@@ -98,6 +137,26 @@ placeAutoCompleteRequest token query =
     in
     makeRequest opts url
 
+{- Google Places Details
+https://developers.google.com/places/web-service/autocomplete
+
+Example request:
+
+> resp <- placeDetailsRequest (SessionToken "123456") ("ChIJUT10v7qib48R08lqIDgiz2g"::Text)
+> resp
+PlaceDetails {_status = OK, _result = PlaceDetailsResult {_name = "Tegucigalpa", _geometry = PlaceGeometry {_location = PlaceCoordinates {_lat = 14.065049, _lng = -87.1715002}}, _formattedAddress = "Tegucigalpa, Honduras"}}
+
+-}
+
+placeDetailsRequest :: SessionToken -> Text -> IO PlaceDetails
+placeDetailsRequest token placeID =
+    let url = googleApiBase <> "/place/details/json"
+        t   = W.param "sessiontoken" .~ [unSessionToken token]
+        q   = W.param "place_id" .~ [placeID]
+        f   = W.param "fields" .~ ["geometry,name,formatted_address"]
+        opts = W.defaults & t & q & f
+    in
+    makeRequest opts url
 
 makeRequest :: forall a . FromJSON a => W.Options -> Text -> IO a
 makeRequest opts url =
