@@ -19,6 +19,7 @@ import           Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Cors
 import qualified Servant as Servant
 import qualified SWE as SWE
+import Geo
 
 -- orphaned instances to make the SWE types JSON-serializable,
 -- if we want to extract SWE, we'll have to wrap them in newtypes
@@ -83,14 +84,29 @@ astroData ut ltLng =
 
 type Api =
   "api" :>
-  ( "horoscope" :> ReqBody '[JSON] AstroRequest :> Post '[JSON] Astro )
+  ( "horoscope" :> ReqBody '[JSON] AstroRequest :> Post '[JSON] Astro :<|>
+    "proxy" :> "autocomplete" :> QueryParam' '[Required] "input" Text :> QueryParam' '[Required] "token" Text :> Get '[JSON] Autocomplete :<|>
+    "proxy" :> "placeDetails" :> QueryParam' '[Required] "place_id" Text :> QueryParam' '[Required] "token" Text :> Get '[JSON] PlaceDetails
+  )
 
 horoscope :: AstroRequest -> Servant.Handler Astro
 horoscope (AstroRequest dateOfBirth location) =
   return $ astroData dateOfBirth location
 
+autocompleteHandler :: Text -> Text -> Servant.Handler Autocomplete
+autocompleteHandler q token = do
+  resp <- liftIO $ placeAutoCompleteRequest (SessionToken token) q
+  return resp
+
+placeDetailsHandler :: Text -> Text -> Servant.Handler PlaceDetails
+placeDetailsHandler p token = do
+  resp <- liftIO $ placeDetailsRequest (SessionToken token) p 
+  return resp
+
 apiServer :: Servant.Server Api
 apiServer = horoscope
+  :<|> autocompleteHandler
+  :<|> placeDetailsHandler
 
 api :: Servant.Proxy Api
 api = Servant.Proxy

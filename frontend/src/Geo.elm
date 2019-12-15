@@ -19,7 +19,7 @@ unPlaceID (PlaceID s) = s
 
 
 googleApiKey : ApiKey
-googleApiKey = ApiKey "AIzaSyACfUA2VBhSW53_kaJT3n_eufMOSjywTFk"
+googleApiKey = ApiKey ""
 
 {- | Place Autocomplete API integration
 https://developers.google.com/places/web-service/autocomplete

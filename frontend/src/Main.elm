@@ -288,7 +288,7 @@ view model =
                 [ Grid.row []
                     [ Grid.col []
                         [ viewRequestForm model
-                        , inputForm model
+                        --, inputForm model
                         , viewChart model
                         ]
                     ]
