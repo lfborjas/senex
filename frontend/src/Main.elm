@@ -188,7 +188,10 @@ update msg model =
         UpdatedTimeInput partialTimeInput ->
             case parseTime partialTimeInput of
                 Ok posixTime ->
-                    ({model | partialTimeInput = Just partialTimeInput, parsedTime = Just posixTime}, Cmd.none)
+                    let
+                        updatedModel = updateHoroscopeTime posixTime model
+                    in
+                    ({updatedModel | partialTimeInput = Just partialTimeInput, parsedTime = Just posixTime}, Cmd.none)
                 Err _ ->
                     ({ model | partialTimeInput = Just partialTimeInput }, Cmd.none)
 
@@ -217,10 +220,53 @@ update msg model =
             in
             case resp of
                 Ok r ->
-                    ( {model | placeDetailsResponse = Just (Success req r), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
+                    let
+                        updatedModel = updateHoroscopeLocation r model
+                    in
+                    
+                    ( {updatedModel | placeDetailsResponse = Just (Success req r), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
                 Err _ ->
                     ( {model | placeDetailsResponse = Just (Failure req), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
         
+
+updateHoroscopeTime : Time.Posix -> Model -> Model
+updateHoroscopeTime newTime model =
+    let
+        dob_ = ISO.fromTime newTime
+        --_    = Debug.log (Debug.toString model.horoscopeRequest) 42
+    in
+    case model.horoscopeRequest of
+        Nothing -> 
+            { model | horoscopeRequest = Just { dob = Just dob_, loc = Nothing } }
+        Just r ->
+            { model | horoscopeRequest = Just { r | dob = Just dob_ } }
+
+updateHoroscopeLocation : PlaceDetailsResponse -> Model -> Model
+updateHoroscopeLocation newPlaceDetails model =
+    let
+        geo  = newPlaceDetails.result.geometry.location
+        loc_ = (String.fromFloat geo.lat) ++ "," ++ (String.fromFloat geo.lng)
+    in
+    case model.horoscopeRequest of
+        Nothing ->
+            { model | horoscopeRequest = Just { dob = Nothing, loc = Just loc_ } }
+        Just r ->
+            { model | horoscopeRequest = Just { r | loc = Just loc_ } }
+
+isCompleteHoroscopeRequest : Model -> Bool
+isCompleteHoroscopeRequest { horoscopeRequest } =
+    let
+        hasTime r = case r.dob of
+            Nothing -> False
+            Just _ ->  True
+        hasPlace r = case r.loc of
+            Nothing -> False
+            Just _ ->  True
+    in
+    case horoscopeRequest of
+        Nothing -> False
+        Just data -> (hasTime data) && (hasPlace data)    
+
 
 parseTime : String -> Result String Time.Posix
 parseTime maybeTime =
@@ -259,8 +305,8 @@ view model =
             , Grid.container []
                 [ Grid.row []
                     [ Grid.col []
-                        [ viewRequestForm model
-                        , inputForm model
+                        [ --viewRequestForm model
+                          inputForm model
                         , viewChart model
                         ]
                     ]
@@ -309,7 +355,7 @@ inputForm model = div []
             , Input.text [ Input.attrs [ Attrs.placeholder "Start typing...", onInput UpdatedPlaceInput, value (placeValue model)]]
             , (viewAutocompleteOptions model)
             ]
-        , Button.button [ Button.success ] [ Html.text "Draw Chart"]
+        , Button.button [Button.success, (Button.disabled <| not <| isCompleteHoroscopeRequest model)] [ Html.text "Draw Chart"]
         ]
     ]
 
