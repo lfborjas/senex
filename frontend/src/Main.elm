@@ -11,6 +11,8 @@ import Bootstrap.Form as Form
 import Bootstrap.Form.Fieldset as Fieldset
 import Bootstrap.Form.Input as Input
 import Bootstrap.Button as Button
+import Bootstrap.ListGroup as ListGroup
+import Bootstrap.Alert as Alert
 import Browser
 import Color exposing (Color)
 import Html as Html exposing (..)
@@ -79,6 +81,7 @@ type alias Model =
     , tokenSeed : Random.Seed
     , partialTimeInput : Maybe String
     , parsedTime : Maybe Time.Posix
+    , selectedLocation : Maybe String
     }
 
 
@@ -115,6 +118,7 @@ init randomSeed =
       , tokenSeed = nextSeed
       , partialTimeInput = Nothing
       , parsedTime = Nothing
+      , selectedLocation = Nothing
       }
     , navbarCmd
     )
@@ -129,8 +133,7 @@ type Msg
     | NavbarMsg Navbar.State
     | UpdatedPlaceInput String
     | UpdatedTimeInput String
-    | PlaceSelected PlaceID
-    | GetPlaceDetails
+    | PlaceSelected PlaceID String
     | GotAutocompleteSuggestions PlaceAutocompleteRequest (Result Http.Error PlaceAutocompleteResponse)
     | GotPlaceDetails PlaceDetailsRequest (Result Http.Error PlaceDetailsResponse)
 
@@ -189,17 +192,17 @@ update msg model =
                 Err _ ->
                     ({ model | partialTimeInput = Just partialTimeInput }, Cmd.none)
 
-        PlaceSelected p ->
-            case model.placeDetailsRequest of
-                Nothing ->
-                    ({ model | placeDetailsRequest = Just <| initDetailsRequest model.autocompleteSessionToken p}, Cmd.none)
+        PlaceSelected p t ->
+            let updatedModel = 
+                    case model.placeDetailsRequest of
+                        Nothing ->
+                            { model | placeDetailsRequest = Just <| initDetailsRequest model.autocompleteSessionToken p}
 
-                Just r ->
-                    ({ model | placeDetailsRequest = Just <| updateDetailsRequest r p}, Cmd.none)
-
-        GetPlaceDetails ->
-            ({model | placeDetailsResponse = Just Loading}, getPlaceDetails model)
-
+                        Just r ->
+                            { model | placeDetailsRequest = Just <| updateDetailsRequest r p}
+            in
+            ({updatedModel | selectedLocation = Just t, placeDetailsResponse = Just Loading}, getPlaceDetails updatedModel)
+            
         GotAutocompleteSuggestions req resp ->
             case resp of
                 Ok r ->
@@ -257,7 +260,7 @@ view model =
                 [ Grid.row []
                     [ Grid.col []
                         [ viewRequestForm model
-                        --, inputForm model
+                        , inputForm model
                         , viewChart model
                         ]
                     ]
@@ -289,8 +292,8 @@ viewRequestForm { horoscopeRequest, horoscopeResponse } =
                 ]
 
 inputForm : Model -> Html Msg
-inputForm model =
-    Form.form []
+inputForm model = div []
+    [ Form.form []
         [ Form.group []
             [ Form.label [] [ Html.text "Time of birth"]
             , Input.text 
@@ -304,9 +307,37 @@ inputForm model =
         , Form.group []
             [ Form.label [] [ Html.text "Place of Birth"]
             , Input.text [ Input.attrs [ Attrs.placeholder "Start typing...", onInput UpdatedPlaceInput, value (placeValue model)]]
+            , (viewAutocompleteOptions model)
             ]
         , Button.button [ Button.success ] [ Html.text "Draw Chart"]
         ]
+    ]
+
+viewAutocompleteOptions : Model -> Html Msg
+viewAutocompleteOptions ({ autocompleteResponse, selectedLocation } as m)  =
+    case autocompleteResponse of
+        Nothing -> div [] []
+
+        Just fetchData ->
+            case fetchData of
+                Loading -> 
+                    div [] [ Spinner.spinner [Spinner.color Text.danger ] []]
+
+                Failure _ ->
+                    div [] [ Alert.simpleWarning [] [Html.text "Unable to load suggestions"]]
+
+                Success _ data ->
+                    ListGroup.custom (List.map (viewAutocompleteOption m) data.predictions)
+
+
+viewAutocompleteOption model pred = 
+    let
+        baseAttr = ListGroup.attrs [Evts.onClick <| PlaceSelected pred.placeID pred.description]
+        attrs = case model.selectedLocation of
+            Nothing -> [baseAttr]
+            Just l -> if pred.description == l then [baseAttr, ListGroup.active] else [baseAttr]
+    in
+    ListGroup.button attrs [Html.text pred.description]
 
 placeValue : Model -> String
 placeValue { autocompleteRequest } =
