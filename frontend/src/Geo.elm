@@ -18,17 +18,12 @@ unSessionToken (SessionToken s) = s
 unPlaceID (PlaceID s) = s
 
 
-googleApiKey : ApiKey
-googleApiKey = ApiKey ""
-
-{- | Place Autocomplete API integration
+{- | Place Autocomplete API integration (using our backend proxy)
 https://developers.google.com/places/web-service/autocomplete
 -}
 
 type alias PlaceAutocompleteRequest =
-    { apiKey : ApiKey
-    , sessionToken : SessionToken
-    , types : String
+    { sessionToken : SessionToken
     , query : String
     }
 
@@ -51,15 +46,9 @@ type alias PlaceAutocompleteResponse =
     , predictions : List PlaceAutocompletePrediction
     }
 
--- TODO: actually generate these!
-newSessionToken : SessionToken
-newSessionToken = SessionToken "5b58931d-bb69-406d-81a9-7746c300838c"
-
 initPlaceRequest : SessionToken -> String -> PlaceAutocompleteRequest
 initPlaceRequest t q = 
-    { apiKey = googleApiKey
-    , sessionToken = t
-    , types = "(regions)"
+    { sessionToken = t
     , query = q
     }
 
@@ -96,7 +85,7 @@ predictionsDecoder : Decode.Decoder PlaceAutocompletePrediction
 predictionsDecoder = 
     Decode.succeed PlaceAutocompletePrediction
         |> Pipeline.required "description" Decode.string
-        |> Pipeline.required "placeID" placeIdDecoder
+        |> Pipeline.required "place_id" placeIdDecoder
 
 placeIdDecoder : Decode.Decoder PlaceID
 placeIdDecoder = 
@@ -107,18 +96,14 @@ https://developers.google.com/places/web-service/details#PlaceDetailsRequests
 -}
 
 type alias PlaceDetailsRequest =
-    { apiKey : ApiKey
-    , placeID : PlaceID
+    { placeID : PlaceID
     , sessionToken : SessionToken
-    , fields : String
     }
 
 initDetailsRequest : SessionToken -> PlaceID -> PlaceDetailsRequest
 initDetailsRequest existingSession placeID =
-    { apiKey = googleApiKey
-    , sessionToken = existingSession
+    { sessionToken = existingSession
     , placeID = placeID
-    , fields = "geometry,name"
     }
 
 updateDetailsRequest : PlaceDetailsRequest -> PlaceID -> PlaceDetailsRequest
@@ -132,6 +117,7 @@ type alias PlaceDetailsResponse =
 
 type alias PlaceDetailsResult =
     { name : String
+    , formattedAddress : String
     , geometry : PlaceGeometry
     }
 
@@ -152,8 +138,9 @@ placeDetailsDecoder =
 
 placeResultDecoder : Decode.Decoder PlaceDetailsResult
 placeResultDecoder =
-    Decode.map2 PlaceDetailsResult
+    Decode.map3 PlaceDetailsResult
         (Decode.field "name" Decode.string)
+        (Decode.field "formatted_address" Decode.string)
         (Decode.field "geometry" placeGeometryDecoder)
 
 placeGeometryDecoder : Decode.Decoder PlaceGeometry
@@ -167,74 +154,31 @@ placeCoordinatesDecoder =
         (Decode.field "lat" Decode.float)
         (Decode.field "lng" Decode.float)
 
-{- | TimeZone API integration
-    https://developers.google.com/maps/documentation/timezone
--}
-
-type alias TimeZoneRequest =
-    { apiKey : ApiKey
-    , location : PlaceCoordinates
-    , timestamp : Int -- seconds, not millis.
-    }
-
-type alias TimeZoneResponse =
-    { status : GoogleAPIResponseStatus
-    , dstOffset : Int
-    , rawOffset : Int
-    , timeZoneID : String
-    , timeZoneName : String 
-    }
-
-unixTime : Time.Posix -> Int
-unixTime t = (Time.posixToMillis t) // 1000
-
-initTimeZoneRequest : PlaceDetailsResult -> Time.Posix -> TimeZoneRequest
-initTimeZoneRequest place time =
-    { apiKey = googleApiKey
-    , location = place.geometry.location
-    , timestamp = unixTime time
-    }
-
-zonedTime : TimeZoneResponse -> Time.Posix -> Time.Posix
-zonedTime r t =
-    let
-        corrected = (unixTime t) + r.dstOffset + r.rawOffset
-    in
-    Time.millisToPosix (corrected * 1000)
-    
-
-timeZoneDecoder : Decode.Decoder TimeZoneResponse
-timeZoneDecoder =
-    Decode.succeed TimeZoneResponse
-        |> Pipeline.required "status" googleStatusDecoder
-        |> Pipeline.required "dstOffset" Decode.int
-        |> Pipeline.required "rawOffest" Decode.int
-        |> Pipeline.required "timeZoneId" Decode.string
-        |> Pipeline.required "timeZoneName" Decode.string
-
 {- | General Google API utils -}
 
 type GoogleApiRequest 
     = PlaceAutocomplete PlaceAutocompleteRequest
     | PlaceDetails PlaceDetailsRequest
-    | TimeZone TimeZoneRequest
 
 -- see: https://package.elm-lang.org/packages/elm/url/latest/Url-Builder#crossOrigin
 
+{-
+    Example URLS
+    "http://localhost:3030/api/proxy/autocomplete?input=tegucigalpa&token=12345"
+     "http://localhost:3030/api/proxy/placeDetails?place_id=ChIJUT10v7qib48R08lqIDgiz2g&token=12345"
+-}
 buildGoogleApiUrl : GoogleApiRequest -> String
 buildGoogleApiUrl request =
     let
         path = 
             case request of
                 PlaceAutocomplete _ ->
-                    ["place", "autocomplete", "json"]
+                    ["autocomplete"]
                 PlaceDetails _ ->
-                    ["place", "details", "json"]
-                TimeZone _ ->
-                    ["timezone", "json"]
+                    ["placeDetails"]
     in
     Builder.crossOrigin 
-        "https://maps.googleapis.com/maps/api"
+        "http://localhost:3030/api/proxy"
         path
         (requestParams request)
 
@@ -242,21 +186,11 @@ requestParams : GoogleApiRequest -> List (Builder.QueryParameter)
 requestParams r =
     case r of
         PlaceAutocomplete au -> 
-            [ string "key" <| unApiKey au.apiKey
-            , string "sessiontoken" <| unSessionToken au.sessionToken
-            , string "types" au.types
+            [ string "token" <| unSessionToken au.sessionToken
             , string "input" au.query
             ]
     
         PlaceDetails dt ->
-            [ string "key" <| unApiKey dt.apiKey
-            , string "sessiontoken" <| unSessionToken dt.sessionToken
-            , string "fields" dt.fields
+            [ string "token" <| unSessionToken dt.sessionToken
             , string "place_id" <| unPlaceID dt.placeID
-            ]
-        
-        TimeZone tz ->
-            [ string "key" <| unApiKey tz.apiKey
-            , string "location" <| (String.fromFloat tz.location.lat) ++ "," ++ (String.fromFloat tz.location.lng)
-            , string "time" <| String.fromInt tz.timestamp
             ]

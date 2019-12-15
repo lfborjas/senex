@@ -70,22 +70,23 @@ type alias Model =
     , horoscopeResponse : Maybe (RemoteFetch HoroscopeRequest HoroscopeResponse)
     , horoscopeAspects : Maybe AspectsList
     , navbarState : Navbar.State
-    -- Google API interactions:
+    -- Google API interactions (via proxy):
     , autocompleteRequest : Maybe PlaceAutocompleteRequest
     , autocompleteResponse : Maybe (RemoteFetch PlaceAutocompleteRequest PlaceAutocompleteResponse)
     , placeDetailsRequest : Maybe PlaceDetailsRequest
     , placeDetailsResponse : Maybe (RemoteFetch PlaceDetailsRequest PlaceDetailsResponse)
-    , timeZoneRequest : Maybe TimeZoneRequest
-    , timeZoneResponse : Maybe (RemoteFetch TimeZoneRequest TimeZoneResponse)
     , autocompleteSessionToken : SessionToken
     , tokenSeed : Random.Seed
     , partialTimeInput : Maybe String
+    , parsedTime : Maybe Time.Posix
     }
 
 
 defaultData : HoroscopeRequest
 defaultData =
-    { dob = Just "1989-01-06T06:30:00.000Z"
+    -- Note that the date is now a "fake UTC" timestamp, since the backend
+    -- does the localized conversion for us
+    { dob = Just "1989-01-06T00:30:00.000Z"
     , loc = Just "14.0839053,-87.2750137"
     }
 
@@ -110,11 +111,10 @@ init randomSeed =
       , autocompleteResponse = Nothing
       , placeDetailsRequest = Nothing
       , placeDetailsResponse = Nothing
-      , timeZoneRequest = Nothing
-      , timeZoneResponse = Nothing
       , autocompleteSessionToken = SessionToken token
       , tokenSeed = nextSeed
       , partialTimeInput = Nothing
+      , parsedTime = Nothing
       }
     , navbarCmd
     )
@@ -131,11 +131,8 @@ type Msg
     | UpdatedTimeInput String
     | PlaceSelected PlaceID
     | GetPlaceDetails
-    | GetTimeZoneInfo 
     | GotAutocompleteSuggestions PlaceAutocompleteRequest (Result Http.Error PlaceAutocompleteResponse)
     | GotPlaceDetails PlaceDetailsRequest (Result Http.Error PlaceDetailsResponse)
-    | GotTimeZoneInfo TimeZoneRequest (Result Http.Error TimeZoneResponse)
-
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -188,12 +185,7 @@ update msg model =
         UpdatedTimeInput partialTimeInput ->
             case parseTime partialTimeInput of
                 Ok posixTime ->
-                    case model.placeDetailsResponse of
-                        Nothing ->
-                            ({model | partialTimeInput = Just partialTimeInput}, Cmd.none)
-
-                        Just resp ->
-                            (buildTimeZoneRequest model posixTime, Cmd.none)
+                    ({model | partialTimeInput = Just partialTimeInput, parsedTime = Just posixTime}, Cmd.none)
                 Err _ ->
                     ({ model | partialTimeInput = Just partialTimeInput }, Cmd.none)
 
@@ -207,9 +199,6 @@ update msg model =
 
         GetPlaceDetails ->
             ({model | placeDetailsResponse = Just Loading}, getPlaceDetails model)
-
-        GetTimeZoneInfo ->
-            ({model | timeZoneResponse = Just Loading}, getTimeZoneInfo model)
 
         GotAutocompleteSuggestions req resp ->
             case resp of
@@ -228,15 +217,6 @@ update msg model =
                     ( {model | placeDetailsResponse = Just (Success req r), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
                 Err _ ->
                     ( {model | placeDetailsResponse = Just (Failure req), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
-
-        GotTimeZoneInfo req resp ->
-            case resp of
-                Ok r ->
-                    ( {model | timeZoneResponse = Just (Success req r)}, Cmd.none)
-                Err _ ->
-                    ( {model | timeZoneResponse = Just (Failure req)}, Cmd.none)
-
-
         
 
 parseTime : String -> Result String Time.Posix
@@ -244,17 +224,6 @@ parseTime maybeTime =
     case ISO.toTime maybeTime of
         Ok t -> Ok t
         Err _ -> Err "Invalid timestamp"
-
-buildTimeZoneRequest : Model -> Time.Posix -> Model
-buildTimeZoneRequest m t =
-    case m.placeDetailsResponse of
-        Nothing -> m
-        Just placeDetailsResponse ->
-            case placeDetailsResponse of
-                Success _ data -> 
-                    { m | timeZoneRequest = Just <| initTimeZoneRequest data.result t}
-                _ -> m
-
 
 deriveAspects : HoroscopeResponse -> AspectsList
 deriveAspects { houseCusps, planetaryPositions } =
@@ -837,18 +806,6 @@ getPlaceDetails { placeDetailsRequest } =
                 { url = buildGoogleApiUrl <| PlaceDetails r
                 , expect = Http.expectJson (GotPlaceDetails r) placeDetailsDecoder
                 }
-
-getTimeZoneInfo : Model -> Cmd Msg
-getTimeZoneInfo { timeZoneRequest } =
-    case timeZoneRequest of
-        Nothing -> Cmd.none
-        Just r ->
-            Http.get
-                { url = buildGoogleApiUrl <| TimeZone r
-                , expect = Http.expectJson (GotTimeZoneInfo r) timeZoneDecoder
-                }
-            
-            
 
 horoscopeDecoder : Decoder HoroscopeResponse
 horoscopeDecoder =
