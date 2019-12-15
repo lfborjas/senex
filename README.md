@@ -2,9 +2,9 @@
 
 Uses Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinfo_e.htm) C library in Haskell, exposing it as a Module and then using it for a Servant-based API that powers a tiny Elm SPA, which renders a Placidus chart in SVG.
 
-## Progress as of 12/12/2019
+## Progress as of 12/15/2019
 
-![image](https://user-images.githubusercontent.com/82133/70592630-818a4680-1ba8-11ea-9cda-90438bcb4963.png)
+![image](https://user-images.githubusercontent.com/82133/70871067-199d7c80-1f69-11ea-8861-5508799995a5.png)
 
 
 
