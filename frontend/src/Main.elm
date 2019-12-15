@@ -129,9 +129,9 @@ type Msg
     | GetAutocompleteSuggestions
     | GetPlaceDetails
     | GetTimeZoneInfo 
-    | GotAutocompleteSuggestions (Result Http.Error PlaceAutocompleteResponse)
-    | GotPlaceDetails (Result Http.Error PlaceDetailsResponse)
-    | GotTimeZoneInfo (Result Http.Error TimeZoneResponse)
+    | GotAutocompleteSuggestions PlaceAutocompleteRequest (Result Http.Error PlaceAutocompleteResponse)
+    | GotPlaceDetails PlaceDetailsRequest (Result Http.Error PlaceDetailsResponse)
+    | GotTimeZoneInfo TimeZoneRequest (Result Http.Error TimeZoneResponse)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -191,7 +191,50 @@ update msg model =
                 Err _ ->
                     ({ model | partialTimeInput = Just partialTimeInput }, Cmd.none)
 
-        _ -> (model, Cmd.none)
+        PlaceSelected p ->
+            case model.placeDetailsRequest of
+                Nothing ->
+                    ({ model | placeDetailsRequest = Just <| initDetailsRequest model.autocompleteSessionToken p}, Cmd.none)
+
+                Just r ->
+                    ({ model | placeDetailsRequest = Just <| updateDetailsRequest r p}, Cmd.none)
+
+        GetAutocompleteSuggestions ->
+            ({ model | autocompleteResponse = Just Loading}, getAutocompleteSuggestions model)
+
+        GetPlaceDetails ->
+            ({model | placeDetailsResponse = Just Loading}, getPlaceDetails model)
+
+        GetTimeZoneInfo ->
+            ({model | timeZoneResponse = Just Loading}, getTimeZoneInfo model)
+
+        GotAutocompleteSuggestions req resp ->
+            case resp of
+                Ok r ->
+                    ( {model | autocompleteResponse = Just (Success req r)}, Cmd.none)
+                Err _ ->
+                    ( {model | autocompleteResponse = Just (Failure req)}, Cmd.none)
+        
+        GotPlaceDetails req resp ->
+            let
+                -- making this request marks the end of an autocomplete "session"
+                (newToken, newSeed) = generateSessionToken model.tokenSeed
+            in
+            case resp of
+                Ok r ->
+                    ( {model | placeDetailsResponse = Just (Success req r), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
+                Err _ ->
+                    ( {model | placeDetailsResponse = Just (Failure req), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
+
+        GotTimeZoneInfo req resp ->
+            case resp of
+                Ok r ->
+                    ( {model | timeZoneResponse = Just (Success req r)}, Cmd.none)
+                Err _ ->
+                    ( {model | timeZoneResponse = Just (Failure req)}, Cmd.none)
+
+
+        
 
 parseTime : String -> Result String Time.Posix
 parseTime maybeTime =
@@ -746,6 +789,37 @@ getHoroscopeData { horoscopeRequest, horoscopeResponse } =
         Nothing ->
             Cmd.none
 
+getAutocompleteSuggestions : Model -> Cmd Msg
+getAutocompleteSuggestions { autocompleteRequest } =
+    case autocompleteRequest of
+        Nothing -> Cmd.none
+        Just r ->
+            Http.get
+                { url = buildGoogleApiUrl <| PlaceAutocomplete r
+                , expect = Http.expectJson (GotAutocompleteSuggestions r) autocompleteResponseDecoder
+                }
+            
+getPlaceDetails : Model -> Cmd Msg
+getPlaceDetails { placeDetailsRequest } =
+    case placeDetailsRequest of
+        Nothing -> Cmd.none
+        Just r ->
+            Http.get
+                { url = buildGoogleApiUrl <| PlaceDetails r
+                , expect = Http.expectJson (GotPlaceDetails r) placeDetailsDecoder
+                }
+
+getTimeZoneInfo : Model -> Cmd Msg
+getTimeZoneInfo { timeZoneRequest } =
+    case timeZoneRequest of
+        Nothing -> Cmd.none
+        Just r ->
+            Http.get
+                { url = buildGoogleApiUrl <| TimeZone r
+                , expect = Http.expectJson (GotTimeZoneInfo r) timeZoneDecoder
+                }
+            
+            
 
 horoscopeDecoder : Decoder HoroscopeResponse
 horoscopeDecoder =

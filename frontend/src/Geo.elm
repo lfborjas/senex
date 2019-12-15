@@ -121,6 +121,10 @@ initDetailsRequest existingSession placeID =
     , fields = "geometry,name"
     }
 
+updateDetailsRequest : PlaceDetailsRequest -> PlaceID -> PlaceDetailsRequest
+updateDetailsRequest r p =
+    { r | placeID = p}
+
 type alias PlaceDetailsResponse =
     { status : GoogleAPIResponseStatus
     , result : PlaceDetailsResult
