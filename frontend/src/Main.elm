@@ -24,7 +24,9 @@ import String as String
 import Svg as Svg exposing (..)
 import Svg.Attributes as SvgAttrs exposing (..)
 import Svg.Events exposing (..)
-
+import Geo exposing (..)
+import Random as Random
+import UUID as UUID
 
 
 {-
@@ -58,12 +60,23 @@ type RemoteFetch req resp
 type alias AspectsList =
     List (Maybe HoroscopeAspect)
 
+type alias GoogleApiState =
+  { autocompleteRequest : Maybe PlaceAutocompleteRequest
+  , autocompleteResponse : Maybe (RemoteFetch PlaceAutocompleteRequest PlaceAutocompleteResponse)
+  , placeDetailsRequest : Maybe PlaceDetailsRequest
+  , placeDetailsResponse : Maybe (RemoteFetch PlaceDetailsRequest PlaceDetailsResponse)
+  , timeZoneRequest : Maybe TimeZoneRequest
+  , timeZoneResponse : Maybe (RemoteFetch TimeZoneRequest TimeZoneResponse)
+  , autocompleteSessionToken : SessionToken
+  , tokenSeed : Random.Seed
+  }
 
 type alias Model =
     { horoscopeRequest : Maybe HoroscopeRequest
     , horoscopeResponse : Maybe (RemoteFetch HoroscopeRequest HoroscopeResponse)
     , horoscopeAspects : Maybe AspectsList
     , navbarState : Navbar.State
+    , googleApiState : Maybe GoogleApiState
     }
 
 
@@ -73,14 +86,41 @@ defaultData =
     , loc = Just "14.0839053,-87.2750137"
     }
 
+defaultGoogleApiState : Random.Seed -> GoogleApiState
+defaultGoogleApiState seed =
+  let
+      (token, nextSeed) = generateSessionToken seed
+  in
+  { autocompleteRequest = Nothing
+  , autocompleteResponse = Nothing
+  , placeDetailsRequest = Nothing
+  , placeDetailsResponse = Nothing
+  , timeZoneRequest = Nothing
+  , timeZoneResponse = Nothing
+  , autocompleteSessionToken = SessionToken token
+  , tokenSeed = nextSeed
+  }
 
-init : () -> ( Model, Cmd Msg )
-init _ =
+generateSessionToken : Random.Seed -> (String, Random.Seed)
+generateSessionToken s =
+  let
+      (uuid, ns) = Random.step UUID.generator s
+  in
+  (UUID.toString uuid, ns)
+
+init : Int -> ( Model, Cmd Msg )
+init randomSeed =
     let
         ( ns, navbarCmd ) =
             Navbar.initialState NavbarMsg
     in
-    ( { horoscopeRequest = Just defaultData, horoscopeResponse = Nothing, horoscopeAspects = Nothing, navbarState = ns }, navbarCmd )
+    ( { horoscopeRequest = Just defaultData
+      , horoscopeResponse = Nothing, horoscopeAspects = Nothing
+      , navbarState = ns 
+      , googleApiState = Just (defaultGoogleApiState (Random.initialSeed randomSeed))
+      }
+    , navbarCmd
+    )
 
 
 type Msg
