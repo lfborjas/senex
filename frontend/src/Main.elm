@@ -7,6 +7,12 @@ import Bootstrap.Navbar as Navbar
 import Bootstrap.Spinner as Spinner
 import Bootstrap.Table as Table
 import Bootstrap.Text as Text
+import Bootstrap.Form as Form
+import Bootstrap.Form.Fieldset as Fieldset
+import Bootstrap.Form.Input as Input
+import Bootstrap.Button as Button
+import Bootstrap.ListGroup as ListGroup
+import Bootstrap.Alert as Alert
 import Browser
 import Color exposing (Color)
 import Html as Html exposing (..)
@@ -27,7 +33,8 @@ import Svg.Events exposing (..)
 import Geo exposing (..)
 import Random as Random
 import UUID as UUID
-
+import Time as Time
+import Iso8601 as ISO
 
 {-
    Simple app to call our Haskell backend (see ../src/Api.hs for the API definition)
@@ -60,46 +67,31 @@ type RemoteFetch req resp
 type alias AspectsList =
     List (Maybe HoroscopeAspect)
 
-type alias GoogleApiState =
-  { autocompleteRequest : Maybe PlaceAutocompleteRequest
-  , autocompleteResponse : Maybe (RemoteFetch PlaceAutocompleteRequest PlaceAutocompleteResponse)
-  , placeDetailsRequest : Maybe PlaceDetailsRequest
-  , placeDetailsResponse : Maybe (RemoteFetch PlaceDetailsRequest PlaceDetailsResponse)
-  , timeZoneRequest : Maybe TimeZoneRequest
-  , timeZoneResponse : Maybe (RemoteFetch TimeZoneRequest TimeZoneResponse)
-  , autocompleteSessionToken : SessionToken
-  , tokenSeed : Random.Seed
-  }
-
 type alias Model =
     { horoscopeRequest : Maybe HoroscopeRequest
     , horoscopeResponse : Maybe (RemoteFetch HoroscopeRequest HoroscopeResponse)
     , horoscopeAspects : Maybe AspectsList
     , navbarState : Navbar.State
-    , googleApiState : Maybe GoogleApiState
+    -- Google API interactions (via proxy):
+    , autocompleteRequest : Maybe PlaceAutocompleteRequest
+    , autocompleteResponse : Maybe (RemoteFetch PlaceAutocompleteRequest PlaceAutocompleteResponse)
+    , placeDetailsRequest : Maybe PlaceDetailsRequest
+    , placeDetailsResponse : Maybe (RemoteFetch PlaceDetailsRequest PlaceDetailsResponse)
+    , autocompleteSessionToken : SessionToken
+    , tokenSeed : Random.Seed
+    , partialTimeInput : Maybe String
+    , parsedTime : Maybe Time.Posix
+    , selectedLocation : Maybe String
     }
 
 
 defaultData : HoroscopeRequest
 defaultData =
-    { dob = Just "1989-01-06T06:30:00.000Z"
+    -- Note that the date is now a "fake UTC" timestamp, since the backend
+    -- does the localized conversion for us
+    { dob = Just "1989-01-06T00:30:00.000Z"
     , loc = Just "14.0839053,-87.2750137"
     }
-
-defaultGoogleApiState : Random.Seed -> GoogleApiState
-defaultGoogleApiState seed =
-  let
-      (token, nextSeed) = generateSessionToken seed
-  in
-  { autocompleteRequest = Nothing
-  , autocompleteResponse = Nothing
-  , placeDetailsRequest = Nothing
-  , placeDetailsResponse = Nothing
-  , timeZoneRequest = Nothing
-  , timeZoneResponse = Nothing
-  , autocompleteSessionToken = SessionToken token
-  , tokenSeed = nextSeed
-  }
 
 generateSessionToken : Random.Seed -> (String, Random.Seed)
 generateSessionToken s =
@@ -111,13 +103,22 @@ generateSessionToken s =
 init : Int -> ( Model, Cmd Msg )
 init randomSeed =
     let
+        (token, nextSeed) = generateSessionToken <| Random.initialSeed randomSeed
         ( ns, navbarCmd ) =
             Navbar.initialState NavbarMsg
     in
-    ( { horoscopeRequest = Just defaultData
+    ( { horoscopeRequest = Nothing
       , horoscopeResponse = Nothing, horoscopeAspects = Nothing
       , navbarState = ns 
-      , googleApiState = Just (defaultGoogleApiState (Random.initialSeed randomSeed))
+      , autocompleteRequest = Nothing
+      , autocompleteResponse = Nothing
+      , placeDetailsRequest = Nothing
+      , placeDetailsResponse = Nothing
+      , autocompleteSessionToken = SessionToken token
+      , tokenSeed = nextSeed
+      , partialTimeInput = Nothing
+      , parsedTime = Nothing
+      , selectedLocation = Nothing
       }
     , navbarCmd
     )
@@ -126,11 +127,13 @@ init randomSeed =
 type Msg
     = GetHoroscope
     | NewHoroscope
-    | GotDob String
-    | GotLoc String
     | GotHoroscope HoroscopeRequest (Result Http.Error HoroscopeResponse)
     | NavbarMsg Navbar.State
-
+    | UpdatedPlaceInput String
+    | UpdatedTimeInput String
+    | PlaceSelected PlaceID String
+    | GotAutocompleteSuggestions PlaceAutocompleteRequest (Result Http.Error PlaceAutocompleteResponse)
+    | GotPlaceDetails PlaceDetailsRequest (Result Http.Error PlaceDetailsResponse)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -138,24 +141,8 @@ update msg model =
         NavbarMsg state ->
             ( { model | navbarState = state }, Cmd.none )
 
-        GotDob dob_ ->
-            case model.horoscopeRequest of
-                Nothing ->
-                    ( { model | horoscopeRequest = Just { dob = Just dob_, loc = Nothing } }, Cmd.none )
-
-                Just r ->
-                    ( { model | horoscopeRequest = Just { r | dob = Just dob_ } }, Cmd.none )
-
-        GotLoc loc_ ->
-            case model.horoscopeRequest of
-                Nothing ->
-                    ( { model | horoscopeRequest = Just { dob = Nothing, loc = Just loc_ } }, Cmd.none )
-
-                Just r ->
-                    ( { model | horoscopeRequest = Just { r | loc = Just loc_ } }, Cmd.none )
-
         NewHoroscope ->
-            ( { model | horoscopeRequest = Just defaultData }, Cmd.none )
+            ( { model | horoscopeRequest = Nothing }, Cmd.none )
 
         GetHoroscope ->
             ( { model | horoscopeResponse = Just Loading }, getHoroscopeData model )
@@ -169,6 +156,105 @@ update msg model =
                 Err _ ->
                     ( { model | horoscopeResponse = Just (Failure req) }, Cmd.none )
 
+        UpdatedPlaceInput partialInput ->
+            let updatedModel = 
+                    case model.autocompleteRequest of
+                        Nothing ->
+                            { model | autocompleteRequest = Just <| initPlaceRequest model.autocompleteSessionToken partialInput }
+                
+                        Just r ->
+                            { model | autocompleteRequest = Just <| updatePlaceRequest r partialInput}
+            in
+            ({updatedModel | autocompleteResponse = Just Loading}, getAutocompleteSuggestions updatedModel)
+
+        UpdatedTimeInput partialTimeInput ->
+            case parseTime partialTimeInput of
+                Ok posixTime ->
+                    let
+                        updatedModel = updateHoroscopeTime posixTime model
+                    in
+                    ({updatedModel | partialTimeInput = Just partialTimeInput, parsedTime = Just posixTime}, Cmd.none)
+                Err _ ->
+                    ({ model | partialTimeInput = Just partialTimeInput }, Cmd.none)
+
+        PlaceSelected p t ->
+            let updatedModel = 
+                    case model.placeDetailsRequest of
+                        Nothing ->
+                            { model | placeDetailsRequest = Just <| initDetailsRequest model.autocompleteSessionToken p}
+
+                        Just r ->
+                            { model | placeDetailsRequest = Just <| updateDetailsRequest r p}
+            in
+            ({updatedModel | selectedLocation = Just t, placeDetailsResponse = Just Loading}, getPlaceDetails updatedModel)
+            
+        GotAutocompleteSuggestions req resp ->
+            case resp of
+                Ok r ->
+                    ( {model | autocompleteResponse = Just (Success req r)}, Cmd.none)
+                Err _ ->
+                    ( {model | autocompleteResponse = Just (Failure req)}, Cmd.none)
+        
+        GotPlaceDetails req resp ->
+            let
+                -- making this request marks the end of an autocomplete "session"
+                (newToken, newSeed) = generateSessionToken model.tokenSeed
+            in
+            case resp of
+                Ok r ->
+                    let
+                        updatedModel = updateHoroscopeLocation r model
+                    in
+                    
+                    ( {updatedModel | placeDetailsResponse = Just (Success req r), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
+                Err _ ->
+                    ( {model | placeDetailsResponse = Just (Failure req), tokenSeed = newSeed, autocompleteSessionToken = SessionToken newToken}, Cmd.none)
+        
+
+updateHoroscopeTime : Time.Posix -> Model -> Model
+updateHoroscopeTime newTime model =
+    let
+        dob_ = ISO.fromTime newTime
+        --_    = Debug.log (Debug.toString model.horoscopeRequest) 42
+    in
+    case model.horoscopeRequest of
+        Nothing -> 
+            { model | horoscopeRequest = Just { dob = Just dob_, loc = Nothing } }
+        Just r ->
+            { model | horoscopeRequest = Just { r | dob = Just dob_ } }
+
+updateHoroscopeLocation : PlaceDetailsResponse -> Model -> Model
+updateHoroscopeLocation newPlaceDetails model =
+    let
+        geo  = newPlaceDetails.result.geometry.location
+        loc_ = (String.fromFloat geo.lat) ++ "," ++ (String.fromFloat geo.lng)
+    in
+    case model.horoscopeRequest of
+        Nothing ->
+            { model | horoscopeRequest = Just { dob = Nothing, loc = Just loc_ } }
+        Just r ->
+            { model | horoscopeRequest = Just { r | loc = Just loc_ } }
+
+isCompleteHoroscopeRequest : Model -> Bool
+isCompleteHoroscopeRequest { horoscopeRequest } =
+    let
+        hasTime r = case r.dob of
+            Nothing -> False
+            Just _ ->  True
+        hasPlace r = case r.loc of
+            Nothing -> False
+            Just _ ->  True
+    in
+    case horoscopeRequest of
+        Nothing -> False
+        Just data -> (hasTime data) && (hasPlace data)    
+
+
+parseTime : String -> Result String Time.Posix
+parseTime maybeTime =
+    case ISO.toTime maybeTime of
+        Ok t -> Ok t
+        Err _ -> Err "Invalid timestamp"
 
 deriveAspects : HoroscopeResponse -> AspectsList
 deriveAspects { houseCusps, planetaryPositions } =
@@ -201,7 +287,7 @@ view model =
             , Grid.container []
                 [ Grid.row []
                     [ Grid.col []
-                        [ viewRequestForm model
+                        [ inputForm model
                         , viewChart model
                         ]
                     ]
@@ -219,25 +305,68 @@ menu model =
         |> Navbar.view model.navbarState
 
 
-viewRequestForm : Model -> Html Msg
-viewRequestForm { horoscopeRequest, horoscopeResponse } =
-    case horoscopeRequest of
-        Nothing ->
-            div [] []
-
-        Just r ->
-            div []
-                [ input [ Attrs.type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
-                , input [ Attrs.type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
-                , button [ Evts.onClick GetHoroscope ] [ Html.text "Show Chart" ]
+inputForm : Model -> Html Msg
+inputForm model = div []
+    [ Form.form []
+        [ Form.group []
+            [ Form.label [] [ Html.text "Time of birth"]
+            , Input.text 
+                [ Input.attrs 
+                    [ Attrs.placeholder "YYYY-MM-DDTHH:mm:ss"
+                    , onInput UpdatedTimeInput
+                    , value <| Maybe.withDefault "" model.partialTimeInput
+                    ]
                 ]
+            ]
+        , Form.group []
+            [ Form.label [] [ Html.text "Place of Birth"]
+            , Input.text [ Input.attrs [ Attrs.placeholder "Start typing...", onInput UpdatedPlaceInput, value (placeValue model)]]
+            , (viewAutocompleteOptions model)
+            ]
+        ]
+    , Button.button [Button.success, Button.attrs [Evts.onClick GetHoroscope], (Button.disabled <| not <| isCompleteHoroscopeRequest model)] [ Html.text "Draw Chart"]
+    ]
 
+viewAutocompleteOptions : Model -> Html Msg
+viewAutocompleteOptions ({ autocompleteResponse, selectedLocation } as m)  =
+    case autocompleteResponse of
+        Nothing -> div [] []
+
+        Just fetchData ->
+            case fetchData of
+                Loading -> 
+                    div [] [ Spinner.spinner [Spinner.color Text.danger ] []]
+
+                Failure _ ->
+                    div [] [ Alert.simpleWarning [] [Html.text "Unable to load suggestions"]]
+
+                Success _ data ->
+                    ListGroup.custom (List.map (viewAutocompleteOption m) data.predictions)
+
+
+viewAutocompleteOption model pred = 
+    let
+        baseAttr = ListGroup.attrs [Evts.onClick <| PlaceSelected pred.placeID pred.description]
+        attrs = case model.selectedLocation of
+            Nothing -> [baseAttr]
+            Just l -> if pred.description == l then [baseAttr, ListGroup.active] else [baseAttr]
+    in
+    ListGroup.button attrs [Html.text pred.description]
+
+placeValue : Model -> String
+placeValue { autocompleteRequest } =
+    case autocompleteRequest of
+        Nothing -> ""
+        Just r  -> r.query
 
 viewChart : Model -> Html Msg
 viewChart { horoscopeRequest, horoscopeResponse, horoscopeAspects } =
     case horoscopeResponse of
         Nothing ->
-            div [] [ Html.text "Enter your info to see your chart!" ]
+            div [] 
+                [ Html.br [] []
+                , Alert.simpleInfo [] [ Html.text "Enter your info to see your chart!" ]
+                ]
 
         Just fetchData ->
             case fetchData of
@@ -706,6 +835,25 @@ getHoroscopeData { horoscopeRequest, horoscopeResponse } =
         Nothing ->
             Cmd.none
 
+getAutocompleteSuggestions : Model -> Cmd Msg
+getAutocompleteSuggestions { autocompleteRequest } =
+    case autocompleteRequest of
+        Nothing -> Cmd.none
+        Just r ->
+            Http.get
+                { url = buildGoogleApiUrl <| PlaceAutocomplete r
+                , expect = Http.expectJson (GotAutocompleteSuggestions r) autocompleteResponseDecoder
+                }
+            
+getPlaceDetails : Model -> Cmd Msg
+getPlaceDetails { placeDetailsRequest } =
+    case placeDetailsRequest of
+        Nothing -> Cmd.none
+        Just r ->
+            Http.get
+                { url = buildGoogleApiUrl <| PlaceDetails r
+                , expect = Http.expectJson (GotPlaceDetails r) placeDetailsDecoder
+                }
 
 horoscopeDecoder : Decoder HoroscopeResponse
 horoscopeDecoder =

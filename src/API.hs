@@ -11,14 +11,14 @@ module API where
 import Import
 
 import Data.Aeson
-import GHC.Generics
 import Servant.API
 import Data.Time
 import           Network.Wai
-import           Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Cors
 import qualified Servant as Servant
 import qualified SWE as SWE
+import Geo
+import Data.Scientific (fromFloatDigits)
 
 -- orphaned instances to make the SWE types JSON-serializable,
 -- if we want to extract SWE, we'll have to wrap them in newtypes
@@ -83,14 +83,28 @@ astroData ut ltLng =
 
 type Api =
   "api" :>
-  ( "horoscope" :> ReqBody '[JSON] AstroRequest :> Post '[JSON] Astro )
+  ( "horoscope" :> ReqBody '[JSON] AstroRequest :> Post '[JSON] Astro :<|>
+    "proxy" :> "autocomplete" :> QueryParam' '[Required] "input" Text :> QueryParam' '[Required] "token" Text :> Get '[JSON] Autocomplete :<|>
+    "proxy" :> "placeDetails" :> QueryParam' '[Required] "place_id" Text :> QueryParam' '[Required] "token" Text :> Get '[JSON] PlaceDetails
+  )
 
 horoscope :: AstroRequest -> Servant.Handler Astro
-horoscope (AstroRequest dateOfBirth location) =
-  return $ astroData dateOfBirth location
+horoscope (AstroRequest dateOfBirth location@(latitude, longitude)) = do
+  timezoneInfo <- liftIO $ timeZoneRequest dateOfBirth (PlaceCoordinates (fromFloatDigits latitude) (fromFloatDigits longitude))
+  return $ astroData (zonedTime timezoneInfo dateOfBirth) location
+
+autocompleteHandler :: Text -> Text -> Servant.Handler Autocomplete
+autocompleteHandler q token =
+  liftIO $ placeAutoCompleteRequest (SessionToken token) q
+
+placeDetailsHandler :: Text -> Text -> Servant.Handler PlaceDetails
+placeDetailsHandler p token =
+  liftIO $ placeDetailsRequest (SessionToken token) p
 
 apiServer :: Servant.Server Api
 apiServer = horoscope
+  :<|> autocompleteHandler
+  :<|> placeDetailsHandler
 
 api :: Servant.Proxy Api
 api = Servant.Proxy

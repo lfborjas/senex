@@ -14,6 +14,15 @@ Been using VSCode with `elm`, `Haskell Language Server` and `Haskell Language` a
 
 To run the backend server, simply run `stack run`. Currently, it doesn't serve the Elm app: I'm using [`elm-live`](https://github.com/wking-io/elm-live) for live development, so I'm simply running both processes on separate terminals and visiting `localhost:8000` to see the Elm SPA.
 
+To run elm-live:
+
+    elm-live src/Main.elm -- --output=main.js
+
+To run the Haskell server
+
+    stack run
+
+
 ### Notes:
 
 * Consider packaging the C bindings, and adding the appropriate support in the `cabal` file.
@@ -308,4 +317,52 @@ Will return:
     }
   ]
 }
+```
+
+###  Google Places Proxy
+
+Due to CORS restrictions, we can't call the google places APIs from Elm. Fortunately, it's quite straightforward to build a proxy! Here's an example interaction:
+
+```bash
+➜  senex git:(google-apis) ✗ curl -v "http://localhost:3030/api/proxy/autocomplete?input=tegucigalpa&token=12345"
+*   Trying ::1...
+* TCP_NODELAY set
+* Connection failed
+* connect to ::1 port 3030 failed: Connection refused
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to localhost (127.0.0.1) port 3030 (#0)
+> GET /api/proxy/autocomplete?input=tegucigalpa&token=12345 HTTP/1.1
+> Host: localhost:3030
+> User-Agent: curl/7.54.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Transfer-Encoding: chunked
+< Date: Sun, 15 Dec 2019 20:19:14 GMT
+< Server: Warp/3.2.28
+< Content-Type: application/json;charset=utf-8
+< 
+* Connection #0 to host localhost left intact
+{"status":"OK","predictions":[{"place_id":"ChIJUT10v7qib48R08lqIDgiz2g","description":"Tegucigalpa, Honduras"}]}⏎                                                                                                                                       ➜  senex git:(google-apis) ✗ curl -v "http://localhost:3030/api/proxy/placeDetails?place_id=ChIJUT10v7qib48R08lqIDgiz2g&token=12345"
+*   Trying ::1...
+* TCP_NODELAY set
+* Connection failed
+* connect to ::1 port 3030 failed: Connection refused
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to localhost (127.0.0.1) port 3030 (#0)
+> GET /api/proxy/placeDetails?place_id=ChIJUT10v7qib48R08lqIDgiz2g&token=12345 HTTP/1.1
+> Host: localhost:3030
+> User-Agent: curl/7.54.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Transfer-Encoding: chunked
+< Date: Sun, 15 Dec 2019 20:19:56 GMT
+< Server: Warp/3.2.28
+< Content-Type: application/json;charset=utf-8
+< 
+* Connection #0 to host localhost left intact
+{"status":"OK","result":{"formatted_address":"Tegucigalpa, Honduras","name":"Tegucigalpa","geometry":{"location":{"lat":14.065049,"lng":-87.1715002}}}}⏎   
 ```
