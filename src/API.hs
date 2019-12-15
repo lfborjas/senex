@@ -20,6 +20,7 @@ import Network.Wai.Middleware.Cors
 import qualified Servant as Servant
 import qualified SWE as SWE
 import Geo
+import Data.Scientific (fromFloatDigits)
 
 -- orphaned instances to make the SWE types JSON-serializable,
 -- if we want to extract SWE, we'll have to wrap them in newtypes
@@ -90,8 +91,9 @@ type Api =
   )
 
 horoscope :: AstroRequest -> Servant.Handler Astro
-horoscope (AstroRequest dateOfBirth location) =
-  return $ astroData dateOfBirth location
+horoscope (AstroRequest dateOfBirth location@(latitude, longitude)) = do
+  timezoneInfo <- liftIO $ timeZoneRequest dateOfBirth (PlaceCoordinates (fromFloatDigits latitude) (fromFloatDigits longitude))
+  return $ astroData (zonedTime timezoneInfo dateOfBirth) location
 
 autocompleteHandler :: Text -> Text -> Servant.Handler Autocomplete
 autocompleteHandler q token = do
