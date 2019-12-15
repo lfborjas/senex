@@ -107,7 +107,7 @@ init randomSeed =
         ( ns, navbarCmd ) =
             Navbar.initialState NavbarMsg
     in
-    ( { horoscopeRequest = Just defaultData
+    ( { horoscopeRequest = Nothing
       , horoscopeResponse = Nothing, horoscopeAspects = Nothing
       , navbarState = ns 
       , autocompleteRequest = Nothing
@@ -127,8 +127,6 @@ init randomSeed =
 type Msg
     = GetHoroscope
     | NewHoroscope
-    | GotDob String
-    | GotLoc String
     | GotHoroscope HoroscopeRequest (Result Http.Error HoroscopeResponse)
     | NavbarMsg Navbar.State
     | UpdatedPlaceInput String
@@ -143,24 +141,8 @@ update msg model =
         NavbarMsg state ->
             ( { model | navbarState = state }, Cmd.none )
 
-        GotDob dob_ ->
-            case model.horoscopeRequest of
-                Nothing ->
-                    ( { model | horoscopeRequest = Just { dob = Just dob_, loc = Nothing } }, Cmd.none )
-
-                Just r ->
-                    ( { model | horoscopeRequest = Just { r | dob = Just dob_ } }, Cmd.none )
-
-        GotLoc loc_ ->
-            case model.horoscopeRequest of
-                Nothing ->
-                    ( { model | horoscopeRequest = Just { dob = Nothing, loc = Just loc_ } }, Cmd.none )
-
-                Just r ->
-                    ( { model | horoscopeRequest = Just { r | loc = Just loc_ } }, Cmd.none )
-
         NewHoroscope ->
-            ( { model | horoscopeRequest = Just defaultData }, Cmd.none )
+            ( { model | horoscopeRequest = Nothing }, Cmd.none )
 
         GetHoroscope ->
             ( { model | horoscopeResponse = Just Loading }, getHoroscopeData model )
@@ -305,8 +287,7 @@ view model =
             , Grid.container []
                 [ Grid.row []
                     [ Grid.col []
-                        [ --viewRequestForm model
-                          inputForm model
+                        [ inputForm model
                         , viewChart model
                         ]
                     ]
@@ -324,19 +305,6 @@ menu model =
         |> Navbar.view model.navbarState
 
 
-viewRequestForm : Model -> Html Msg
-viewRequestForm { horoscopeRequest, horoscopeResponse } =
-    case horoscopeRequest of
-        Nothing ->
-            div [] []
-
-        Just r ->
-            div []
-                [ input [ Attrs.type_ "text", placeholder "Date of Birth", onInput GotDob, value (Maybe.withDefault "" r.dob) ] []
-                , input [ Attrs.type_ "text", placeholder "Location (lat, long)", onInput GotLoc, value (Maybe.withDefault "" r.loc) ] []
-                , button [ Evts.onClick GetHoroscope ] [ Html.text "Show Chart" ]
-                ]
-
 inputForm : Model -> Html Msg
 inputForm model = div []
     [ Form.form []
@@ -344,7 +312,7 @@ inputForm model = div []
             [ Form.label [] [ Html.text "Time of birth"]
             , Input.text 
                 [ Input.attrs 
-                    [ Attrs.placeholder "YYYY-MM-DDTHH:mm:ss.SSSZ"
+                    [ Attrs.placeholder "YYYY-MM-DDTHH:mm:ss"
                     , onInput UpdatedTimeInput
                     , value <| Maybe.withDefault "" model.partialTimeInput
                     ]
@@ -355,8 +323,8 @@ inputForm model = div []
             , Input.text [ Input.attrs [ Attrs.placeholder "Start typing...", onInput UpdatedPlaceInput, value (placeValue model)]]
             , (viewAutocompleteOptions model)
             ]
-        , Button.button [Button.success, (Button.disabled <| not <| isCompleteHoroscopeRequest model)] [ Html.text "Draw Chart"]
         ]
+    , Button.button [Button.success, Button.attrs [Evts.onClick GetHoroscope], (Button.disabled <| not <| isCompleteHoroscopeRequest model)] [ Html.text "Draw Chart"]
     ]
 
 viewAutocompleteOptions : Model -> Html Msg
@@ -395,7 +363,10 @@ viewChart : Model -> Html Msg
 viewChart { horoscopeRequest, horoscopeResponse, horoscopeAspects } =
     case horoscopeResponse of
         Nothing ->
-            div [] [ Html.text "Enter your info to see your chart!" ]
+            div [] 
+                [ Html.br [] []
+                , Alert.simpleInfo [] [ Html.text "Enter your info to see your chart!" ]
+                ]
 
         Just fetchData ->
             case fetchData of
