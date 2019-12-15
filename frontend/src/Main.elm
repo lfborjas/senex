@@ -27,7 +27,8 @@ import Svg.Events exposing (..)
 import Geo exposing (..)
 import Random as Random
 import UUID as UUID
-
+import Time as Time
+import Iso8601 as ISO
 
 {-
    Simple app to call our Haskell backend (see ../src/Api.hs for the API definition)
@@ -60,23 +61,21 @@ type RemoteFetch req resp
 type alias AspectsList =
     List (Maybe HoroscopeAspect)
 
-type alias GoogleApiState =
-  { autocompleteRequest : Maybe PlaceAutocompleteRequest
-  , autocompleteResponse : Maybe (RemoteFetch PlaceAutocompleteRequest PlaceAutocompleteResponse)
-  , placeDetailsRequest : Maybe PlaceDetailsRequest
-  , placeDetailsResponse : Maybe (RemoteFetch PlaceDetailsRequest PlaceDetailsResponse)
-  , timeZoneRequest : Maybe TimeZoneRequest
-  , timeZoneResponse : Maybe (RemoteFetch TimeZoneRequest TimeZoneResponse)
-  , autocompleteSessionToken : SessionToken
-  , tokenSeed : Random.Seed
-  }
-
 type alias Model =
     { horoscopeRequest : Maybe HoroscopeRequest
     , horoscopeResponse : Maybe (RemoteFetch HoroscopeRequest HoroscopeResponse)
     , horoscopeAspects : Maybe AspectsList
     , navbarState : Navbar.State
-    , googleApiState : Maybe GoogleApiState
+    -- Google API interactions:
+    , autocompleteRequest : Maybe PlaceAutocompleteRequest
+    , autocompleteResponse : Maybe (RemoteFetch PlaceAutocompleteRequest PlaceAutocompleteResponse)
+    , placeDetailsRequest : Maybe PlaceDetailsRequest
+    , placeDetailsResponse : Maybe (RemoteFetch PlaceDetailsRequest PlaceDetailsResponse)
+    , timeZoneRequest : Maybe TimeZoneRequest
+    , timeZoneResponse : Maybe (RemoteFetch TimeZoneRequest TimeZoneResponse)
+    , autocompleteSessionToken : SessionToken
+    , tokenSeed : Random.Seed
+    , partialTimeInput : Maybe String
     }
 
 
@@ -85,21 +84,6 @@ defaultData =
     { dob = Just "1989-01-06T06:30:00.000Z"
     , loc = Just "14.0839053,-87.2750137"
     }
-
-defaultGoogleApiState : Random.Seed -> GoogleApiState
-defaultGoogleApiState seed =
-  let
-      (token, nextSeed) = generateSessionToken seed
-  in
-  { autocompleteRequest = Nothing
-  , autocompleteResponse = Nothing
-  , placeDetailsRequest = Nothing
-  , placeDetailsResponse = Nothing
-  , timeZoneRequest = Nothing
-  , timeZoneResponse = Nothing
-  , autocompleteSessionToken = SessionToken token
-  , tokenSeed = nextSeed
-  }
 
 generateSessionToken : Random.Seed -> (String, Random.Seed)
 generateSessionToken s =
@@ -111,13 +95,22 @@ generateSessionToken s =
 init : Int -> ( Model, Cmd Msg )
 init randomSeed =
     let
+        (token, nextSeed) = generateSessionToken <| Random.initialSeed randomSeed
         ( ns, navbarCmd ) =
             Navbar.initialState NavbarMsg
     in
     ( { horoscopeRequest = Just defaultData
       , horoscopeResponse = Nothing, horoscopeAspects = Nothing
       , navbarState = ns 
-      , googleApiState = Just (defaultGoogleApiState (Random.initialSeed randomSeed))
+      , autocompleteRequest = Nothing
+      , autocompleteResponse = Nothing
+      , placeDetailsRequest = Nothing
+      , placeDetailsResponse = Nothing
+      , timeZoneRequest = Nothing
+      , timeZoneResponse = Nothing
+      , autocompleteSessionToken = SessionToken token
+      , tokenSeed = nextSeed
+      , partialTimeInput = Nothing
       }
     , navbarCmd
     )
@@ -130,6 +123,15 @@ type Msg
     | GotLoc String
     | GotHoroscope HoroscopeRequest (Result Http.Error HoroscopeResponse)
     | NavbarMsg Navbar.State
+    | UpdatedPlaceInput String
+    | UpdatedTimeInput String
+    | PlaceSelected PlaceID
+    | GetAutocompleteSuggestions
+    | GetPlaceDetails
+    | GetTimeZoneInfo 
+    | GotAutocompleteSuggestions (Result Http.Error PlaceAutocompleteResponse)
+    | GotPlaceDetails (Result Http.Error PlaceDetailsResponse)
+    | GotTimeZoneInfo (Result Http.Error TimeZoneResponse)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -168,6 +170,44 @@ update msg model =
 
                 Err _ ->
                     ( { model | horoscopeResponse = Just (Failure req) }, Cmd.none )
+
+        UpdatedPlaceInput partialInput ->
+            case model.autocompleteRequest of
+                Nothing ->
+                    ({ model | autocompleteRequest = Just <| initPlaceRequest model.autocompleteSessionToken partialInput }, Cmd.none)
+                
+                Just r ->
+                    ({ model | autocompleteRequest = Just <| updatePlaceRequest r partialInput}, Cmd.none)
+
+        UpdatedTimeInput partialTimeInput ->
+            case parseTime partialTimeInput of
+                Ok posixTime ->
+                    case model.placeDetailsResponse of
+                        Nothing ->
+                            ({model | partialTimeInput = Just partialTimeInput}, Cmd.none)
+
+                        Just resp ->
+                            (buildTimeZoneRequest model posixTime, Cmd.none)
+                Err _ ->
+                    ({ model | partialTimeInput = Just partialTimeInput }, Cmd.none)
+
+        _ -> (model, Cmd.none)
+
+parseTime : String -> Result String Time.Posix
+parseTime maybeTime =
+    case ISO.toTime maybeTime of
+        Ok t -> Ok t
+        Err _ -> Err "Invalid timestamp"
+
+buildTimeZoneRequest : Model -> Time.Posix -> Model
+buildTimeZoneRequest m t =
+    case m.placeDetailsResponse of
+        Nothing -> m
+        Just placeDetailsResponse ->
+            case placeDetailsResponse of
+                Success _ data -> 
+                    { m | timeZoneRequest = Just <| initTimeZoneRequest data.result t}
+                _ -> m
 
 
 deriveAspects : HoroscopeResponse -> AspectsList
