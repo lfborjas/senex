@@ -7,6 +7,10 @@ import Bootstrap.Navbar as Navbar
 import Bootstrap.Spinner as Spinner
 import Bootstrap.Table as Table
 import Bootstrap.Text as Text
+import Bootstrap.Form as Form
+import Bootstrap.Form.Fieldset as Fieldset
+import Bootstrap.Form.Input as Input
+import Bootstrap.Button as Button
 import Browser
 import Color exposing (Color)
 import Html as Html exposing (..)
@@ -126,7 +130,6 @@ type Msg
     | UpdatedPlaceInput String
     | UpdatedTimeInput String
     | PlaceSelected PlaceID
-    | GetAutocompleteSuggestions
     | GetPlaceDetails
     | GetTimeZoneInfo 
     | GotAutocompleteSuggestions PlaceAutocompleteRequest (Result Http.Error PlaceAutocompleteResponse)
@@ -172,12 +175,15 @@ update msg model =
                     ( { model | horoscopeResponse = Just (Failure req) }, Cmd.none )
 
         UpdatedPlaceInput partialInput ->
-            case model.autocompleteRequest of
-                Nothing ->
-                    ({ model | autocompleteRequest = Just <| initPlaceRequest model.autocompleteSessionToken partialInput }, Cmd.none)
+            let updatedModel = 
+                    case model.autocompleteRequest of
+                        Nothing ->
+                            { model | autocompleteRequest = Just <| initPlaceRequest model.autocompleteSessionToken partialInput }
                 
-                Just r ->
-                    ({ model | autocompleteRequest = Just <| updatePlaceRequest r partialInput}, Cmd.none)
+                        Just r ->
+                            { model | autocompleteRequest = Just <| updatePlaceRequest r partialInput}
+            in
+            ({updatedModel | autocompleteResponse = Just Loading}, getAutocompleteSuggestions updatedModel)
 
         UpdatedTimeInput partialTimeInput ->
             case parseTime partialTimeInput of
@@ -198,9 +204,6 @@ update msg model =
 
                 Just r ->
                     ({ model | placeDetailsRequest = Just <| updateDetailsRequest r p}, Cmd.none)
-
-        GetAutocompleteSuggestions ->
-            ({ model | autocompleteResponse = Just Loading}, getAutocompleteSuggestions model)
 
         GetPlaceDetails ->
             ({model | placeDetailsResponse = Just Loading}, getPlaceDetails model)
@@ -285,6 +288,7 @@ view model =
                 [ Grid.row []
                     [ Grid.col []
                         [ viewRequestForm model
+                        , inputForm model
                         , viewChart model
                         ]
                     ]
@@ -315,6 +319,31 @@ viewRequestForm { horoscopeRequest, horoscopeResponse } =
                 , button [ Evts.onClick GetHoroscope ] [ Html.text "Show Chart" ]
                 ]
 
+inputForm : Model -> Html Msg
+inputForm model =
+    Form.form []
+        [ Form.group []
+            [ Form.label [] [ Html.text "Time of birth"]
+            , Input.text 
+                [ Input.attrs 
+                    [ Attrs.placeholder "YYYY-MM-DDTHH:mm:ss.SSSZ"
+                    , onInput UpdatedTimeInput
+                    , value <| Maybe.withDefault "" model.partialTimeInput
+                    ]
+                ]
+            ]
+        , Form.group []
+            [ Form.label [] [ Html.text "Place of Birth"]
+            , Input.text [ Input.attrs [ Attrs.placeholder "Start typing...", onInput UpdatedPlaceInput, value (placeValue model)]]
+            ]
+        , Button.button [ Button.success ] [ Html.text "Draw Chart"]
+        ]
+
+placeValue : Model -> String
+placeValue { autocompleteRequest } =
+    case autocompleteRequest of
+        Nothing -> ""
+        Just r  -> r.query
 
 viewChart : Model -> Html Msg
 viewChart { horoscopeRequest, horoscopeResponse, horoscopeAspects } =

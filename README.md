@@ -14,6 +14,10 @@ Been using VSCode with `elm`, `Haskell Language Server` and `Haskell Language` a
 
 To run the backend server, simply run `stack run`. Currently, it doesn't serve the Elm app: I'm using [`elm-live`](https://github.com/wking-io/elm-live) for live development, so I'm simply running both processes on separate terminals and visiting `localhost:8000` to see the Elm SPA.
 
+To run elm-live:
+
+    elm-live src/Main.elm -- --output=main.js
+
 ### Notes:
 
 * Consider packaging the C bindings, and adding the appropriate support in the `cabal` file.
