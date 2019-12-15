@@ -18,6 +18,11 @@ To run elm-live:
 
     elm-live src/Main.elm -- --output=main.js
 
+To run the Haskell server
+
+    stack run
+
+
 ### Notes:
 
 * Consider packaging the C bindings, and adding the appropriate support in the `cabal` file.

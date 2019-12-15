@@ -22,6 +22,7 @@ ghc-options:
 - -Wpartial-fields
 - -Wredundant-constraints
 dependencies:
+- aeson-casing
 - bytestring
 - base >= 4.11 && < 10
 - rio >= 0.1.8.0

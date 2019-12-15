@@ -34,6 +34,7 @@ library
       SWE
       Foreign.SWE
       API
+      Geo
   other-modules:
       Paths_senex
   hs-source-dirs:
@@ -41,10 +42,13 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
   build-depends:
       aeson
+    , aeson-casing
     , base >=4.11 && <10
     , rio >=0.1.8.0
     , bytestring
     , elm-bridge >=0.5.2
+    , lens
+    , lens-aeson
     , scientific >= 0.3.6.2
     , servant
     , servant-client
@@ -55,6 +59,7 @@ library
     , wai
     , warp
     , wai-cors
+    , wreq
   default-language: Haskell2010
   extra-libraries: swe
   extra-lib-dirs: /usr/local/lib
