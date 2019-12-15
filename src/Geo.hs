@@ -203,7 +203,7 @@ toUnixTime = round . utcTimeToPOSIXSeconds
 zonedTime :: TimeZoneInfo -> UTCTime -> UTCTime
 zonedTime r t = posixSecondsToUTCTime corrected
   where
-    corrected = realToFrac $ (toUnixTime t) + (_dstOffset r) + (_rawOffset r)
+    corrected = realToFrac $ (toUnixTime t) - ((_dstOffset r) + (_rawOffset r))
 
 timeZoneRequest :: UTCTime -> PlaceCoordinates -> IO TimeZoneInfo
 timeZoneRequest time place =
