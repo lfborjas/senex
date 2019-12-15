@@ -11,11 +11,9 @@ module API where
 import Import
 
 import Data.Aeson
-import GHC.Generics
 import Servant.API
 import Data.Time
 import           Network.Wai
-import           Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Cors
 import qualified Servant as Servant
 import qualified SWE as SWE
@@ -96,14 +94,12 @@ horoscope (AstroRequest dateOfBirth location@(latitude, longitude)) = do
   return $ astroData (zonedTime timezoneInfo dateOfBirth) location
 
 autocompleteHandler :: Text -> Text -> Servant.Handler Autocomplete
-autocompleteHandler q token = do
-  resp <- liftIO $ placeAutoCompleteRequest (SessionToken token) q
-  return resp
+autocompleteHandler q token =
+  liftIO $ placeAutoCompleteRequest (SessionToken token) q
 
 placeDetailsHandler :: Text -> Text -> Servant.Handler PlaceDetails
-placeDetailsHandler p token = do
-  resp <- liftIO $ placeDetailsRequest (SessionToken token) p 
-  return resp
+placeDetailsHandler p token =
+  liftIO $ placeDetailsRequest (SessionToken token) p
 
 apiServer :: Servant.Server Api
 apiServer = horoscope

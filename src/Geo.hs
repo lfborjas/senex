@@ -8,16 +8,22 @@
 
 module Geo where
 
-import           Control.Lens               ((&), (.~), (^.))
+import           Control.Lens                   ( (&)
+                                                , (.~)
+                                                , (^.)
+                                                )
 import           Data.Aeson
-import Data.Aeson.Casing (snakeCase)
-import Data.Aeson.TH
-import Data.Scientific
-import Data.Text (Text, pack, unpack)
-import GHC.Generics
-import qualified Network.Wreq as W
-import Data.Time
-import Data.Time.Clock.POSIX
+import           Data.Aeson.Casing              ( snakeCase )
+import           Data.Aeson.TH
+import           Data.Scientific
+import           Data.Text                      ( Text
+                                                , pack
+                                                , unpack
+                                                )
+import           GHC.Generics
+import qualified Network.Wreq                  as W
+import           Data.Time
+import           Data.Time.Clock.POSIX
 
 googleApiBase :: Text
 googleApiBase = "https://maps.googleapis.com/maps/api"
@@ -34,16 +40,15 @@ data GoogleApiStatus = OK
                     deriving (Show, Generic)
 
 statusFromString :: Text -> GoogleApiStatus
-statusFromString v =
-    case v of
-        "OK" -> OK
-        "ZERO_RESULTS" -> ZeroResults
-        "OVER_QUERY_LIMIT" -> OverQueryLimit
-        "REQUEST_DENIED" -> RequestDenied
-        "INVALID_REQUEST" -> InvalidRequest
-        "NOT_FOUND" -> NotFound
-        "UNKNOWN_ERROR" ->  UnknownError
-        _ -> UnknownError
+statusFromString v = case v of
+    "OK"               -> OK
+    "ZERO_RESULTS"     -> ZeroResults
+    "OVER_QUERY_LIMIT" -> OverQueryLimit
+    "REQUEST_DENIED"   -> RequestDenied
+    "INVALID_REQUEST"  -> InvalidRequest
+    "NOT_FOUND"        -> NotFound
+    "UNKNOWN_ERROR"    -> UnknownError
+    _                  -> UnknownError
 
 instance FromJSON GoogleApiStatus
 instance ToJSON GoogleApiStatus
@@ -70,7 +75,7 @@ instance FromJSON Autocomplete where
         return $ Autocomplete s ps
 
 instance ToJSON Autocomplete where
-    toJSON = genericToJSON defaultOptions {fieldLabelModifier = drop 1}
+    toJSON = genericToJSON defaultOptions { fieldLabelModifier = drop 1 }
 
 {- | Types for Place Details -}
 
@@ -109,7 +114,7 @@ instance FromJSON PlaceDetails where
         return $ PlaceDetails s r
 
 instance ToJSON PlaceDetails where
-    toJSON = genericToJSON defaultOptions  {fieldLabelModifier = drop 1}
+    toJSON = genericToJSON defaultOptions { fieldLabelModifier = drop 1 }
 
 
 {- TimeZone types -}
@@ -134,7 +139,7 @@ instance FromJSON TimeZoneInfo where
         return $ TimeZoneInfo s os r tid tn
 
 instance ToJSON TimeZoneInfo where
-    toJSON = genericToJSON defaultOptions { fieldLabelModifier = drop 1}
+    toJSON = genericToJSON defaultOptions { fieldLabelModifier = drop 1 }
 
 {- Google Places Autocomplete
 https://developers.google.com/places/web-service/autocomplete
@@ -153,8 +158,7 @@ placeAutoCompleteRequest token query =
         q    = W.param "input" .~ [query]
         f    = W.param "types" .~ ["(regions)"]
         opts = W.defaults & t & q & f
-    in
-    makeRequest opts url
+    in  makeRequest opts url
 
 {- Google Places Details
 https://developers.google.com/places/web-service/autocomplete
@@ -169,13 +173,12 @@ PlaceDetails {_status = OK, _result = PlaceDetailsResult {_name = "Tegucigalpa",
 
 placeDetailsRequest :: SessionToken -> Text -> IO PlaceDetails
 placeDetailsRequest token placeID =
-    let url = googleApiBase <> "/place/details/json"
-        t   = W.param "sessiontoken" .~ [unSessionToken token]
-        q   = W.param "place_id" .~ [placeID]
-        f   = W.param "fields" .~ ["geometry,name,formatted_address"]
+    let url  = googleApiBase <> "/place/details/json"
+        t    = W.param "sessiontoken" .~ [unSessionToken token]
+        q    = W.param "place_id" .~ [placeID]
+        f    = W.param "fields" .~ ["geometry,name,formatted_address"]
         opts = W.defaults & t & q & f
-    in
-    makeRequest opts url
+    in  makeRequest opts url
 
 {- TimeZone Api Request
 https://developers.google.com/maps/documentation/timezone/intro#Requests
@@ -199,23 +202,27 @@ toUnixTime = round . utcTimeToPOSIXSeconds
 
 zonedTime :: TimeZoneInfo -> UTCTime -> UTCTime
 zonedTime r t = posixSecondsToUTCTime corrected
-    where corrected = realToFrac $ (toUnixTime t) + (_dstOffset r) + (_rawOffset r)
+  where
+    corrected = realToFrac $ (toUnixTime t) + (_dstOffset r) + (_rawOffset r)
 
 timeZoneRequest :: UTCTime -> PlaceCoordinates -> IO TimeZoneInfo
 timeZoneRequest time place =
     let url = googleApiBase <> "/timezone/json"
-        q   = W.param "location" .~ [pack $ show (_lat place) <> "," <> show (_lng place)]
-        p   = W.param "timestamp" .~ [pack $ show (toUnixTime time)]
+        q =
+                W.param "location"
+                    .~ [pack $ show (_lat place) <> "," <> show (_lng place)]
+        p    = W.param "timestamp" .~ [pack $ show (toUnixTime time)]
         opts = W.defaults & q & p
-    in
-    makeRequest opts url
+    in  makeRequest opts url
 
 -- inspired by: 
 -- https://github.com/gvolpe/exchange-rates/blob/26edcc057ab2658e28aafccfc2d65a8f0d0c42a5/src/Http/Client/Forex.hs
 
-makeRequest :: forall a . FromJSON a => W.Options -> Text -> IO a
+makeRequest :: forall  a . FromJSON a => W.Options -> Text -> IO a
 makeRequest opts url =
-    let optsWithKey = opts
-            & W.param  "key" .~ ["AIzaSyACfUA2VBhSW53_kaJT3n_eufMOSjywTFk"]
-    in
-    (^. W.responseBody) <$> (W.asJSON =<< W.getWith optsWithKey (unpack url) :: IO (W.Response a))
+    let optsWithKey =
+                opts & W.param "key" .~ ["AIzaSyACfUA2VBhSW53_kaJT3n_eufMOSjywTFk"]
+    in  (^. W.responseBody)
+            <$> (W.asJSON =<< W.getWith optsWithKey (unpack url) :: IO
+                      (W.Response a)
+                )
