@@ -170,8 +170,14 @@ update msg model =
             in
             ({updatedModel | autocompleteResponse = Just Loading}, getAutocompleteSuggestions updatedModel)
 
-        UpdatedTimeInput partialTimeInput ->
-            case parseTime partialTimeInput of
+        UpdatedTimeInput browserTimeInput ->
+            let
+                -- adding the seconds since the browser sends a value that the ISO8601 library
+                -- doesn't like, more at:
+                -- https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/datetime-local
+                partialTimeInput = browserTimeInput ++ ":00"
+            in
+            case (parseTime partialTimeInput) of
                 Ok posixTime ->
                     let
                         updatedModel = updateHoroscopeTime posixTime model
@@ -313,10 +319,9 @@ inputForm model = div []
     [ Form.form []
         [ Form.group []
             [ Form.label [] [ Html.text "Time of birth"]
-            , Input.text 
+            , Input.datetimeLocal 
                 [ Input.attrs 
-                    [ Attrs.placeholder "YYYY-MM-DDTHH:mm:ss"
-                    , onInput UpdatedTimeInput
+                    [ onInput UpdatedTimeInput
                     , value <| Maybe.withDefault "" model.partialTimeInput
                     ]
                 ]
@@ -2047,4 +2052,7 @@ externalSvg nameAndId size =
    for addresses/geocoding:
    https://developers.google.com/places/web-service/autocomplete
    https://developers.google.com/maps/documentation/geocoding/best-practices (use places and then latLong with placeID)
+
+   elm stuff:
+   https://thoughtbot.com/blog/5-common-json-decoders
 -}
