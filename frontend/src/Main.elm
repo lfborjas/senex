@@ -151,7 +151,10 @@ update msg model =
         GotHoroscope req result ->
             case result of
                 Ok r ->
-                    ( { model | horoscopeResponse = Just (Success req r), horoscopeAspects = Just (deriveAspects r) }, Cmd.none )
+                    let
+                        updatedModel = { model | horoscopeResponse = Just (Success req r), horoscopeAspects = Just (deriveAspects r) }
+                    in
+                    ( { updatedModel | horoscopeRequest = Nothing }, Cmd.none)
 
                 Err _ ->
                     ( { model | horoscopeResponse = Just (Failure req) }, Cmd.none )
