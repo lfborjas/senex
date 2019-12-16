@@ -4,8 +4,7 @@ Uses Astrodientst's [Swiss Ephemeris](https://www.astro.com/swisseph/swephinfo_e
 
 ## Progress as of 12/15/2019
 
-![image](https://user-images.githubusercontent.com/82133/70871067-199d7c80-1f69-11ea-8861-5508799995a5.png)
-
+![image](https://user-images.githubusercontent.com/82133/70871651-608e7080-1f6f-11ea-8432-0c2031d8b6a2.png)
 
 
 ## Development
