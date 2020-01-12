@@ -7,3 +7,4 @@ tarballs/
 *.so
 *.dylib
 frontend/elm-stuff/*
+csrc/*
