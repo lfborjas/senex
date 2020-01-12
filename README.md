@@ -32,7 +32,7 @@ To run the Haskell server
 
 ### Compiling the C libs
 
-(TODO: maybe should add an `install` task  to the C bits)
+I'm currently ignoring the C sources, as they're downloaded as-is from the official site. The version I'm using is the sources for 2.08 as found in the [downloads page](https://www.astro.com/ftp/swisseph/) -- I put them in a `csrc` folder.
 
 ```
 ➜  csrc git:(master) ✗ make libswe.so
