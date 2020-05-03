@@ -19,7 +19,7 @@ To run elm-live:
 
 To run the Haskell server
 
-    stack run
+    GOOGLE_API_KEY=<GET_YOUR_OWN_DANG_KEY> stack run
 
 
 ### Notes:
