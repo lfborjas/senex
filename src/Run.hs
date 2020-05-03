@@ -24,4 +24,4 @@ startApp env = do
       settings =
         setPort port
         defaultSettings
-  runSettings settings =<< app
+  runSettings settings =<< pure (app env)
