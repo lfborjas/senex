@@ -3,27 +3,23 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TemplateHaskell        #-}
-{-# Language RankNTypes, ScopedTypeVariables #-}
 
 module Geo where
 
-import           Control.Lens                   ( (&)
-                                                , (.~)
-                                                , (^.)
-                                                )
+import           Control.Lens          ((&), (.~), (^.))
 import           Data.Aeson
-import           Data.Aeson.Casing              ( snakeCase )
+import           Data.Aeson.Casing     (snakeCase)
 import           Data.Aeson.TH
 import           Data.Scientific
-import           Data.Text                      ( Text
-                                                , pack
-                                                , unpack
-                                                )
-import           GHC.Generics
-import qualified Network.Wreq                  as W
+import           Data.Text             (Text, pack, unpack)
 import           Data.Time
 import           Data.Time.Clock.POSIX
+import           GHC.Generics
+import           Import                hiding ((&), (.~), (^.))
+import qualified Network.Wreq          as W
 
 googleApiBase :: Text
 googleApiBase = "https://maps.googleapis.com/maps/api"
@@ -55,13 +51,13 @@ instance ToJSON GoogleApiStatus
 
 data AutocompletePrediction = AutocompletePrediction
     { _description :: Text
-    , _placeId :: Text
+    , _placeId     :: Text
     } deriving (Show)
 
 deriveJSON defaultOptions{fieldLabelModifier = snakeCase . drop 1} ''AutocompletePrediction
 
 data Autocomplete = Autocomplete
-    { _status :: GoogleApiStatus
+    { _status      :: GoogleApiStatus
     , _predictions :: [AutocompletePrediction]
     } deriving (Show, Generic)
 
@@ -93,8 +89,8 @@ data PlaceGeometry = PlaceGeometry
 deriveJSON defaultOptions { fieldLabelModifier = snakeCase . drop 1 } ''PlaceGeometry
 
 data PlaceDetailsResult = PlaceDetailsResult
-    { _name :: Text
-    , _geometry :: PlaceGeometry
+    { _name             :: Text
+    , _geometry         :: PlaceGeometry
     , _formattedAddress :: Text
     } deriving (Show, Generic)
 
@@ -120,10 +116,10 @@ instance ToJSON PlaceDetails where
 {- TimeZone types -}
 
 data TimeZoneInfo = TimeZoneInfo
-    { _status :: GoogleApiStatus
-    , _dstOffset :: Int
-    , _rawOffset :: Int
-    , _timeZoneId :: Text
+    { _status       :: GoogleApiStatus
+    , _dstOffset    :: Int
+    , _rawOffset    :: Int
+    , _timeZoneId   :: Text
     , _timeZoneName :: Text
     } deriving (Show, Generic)
 
@@ -151,7 +147,7 @@ Example request:
 "{\"status\":\"OK\",\"predictions\":[{\"place_id\":\"ChIJUT10v7qib48R08lqIDgiz2g\",\"description\":\"Tegucigalpa, Honduras\"}]}"
 -}
 
-placeAutoCompleteRequest :: SessionToken -> Text -> IO Autocomplete
+placeAutoCompleteRequest :: HasGoogleApiKey env => SessionToken -> Text -> RIO env Autocomplete
 placeAutoCompleteRequest token query =
     let url  = googleApiBase <> "/place/autocomplete/json"
         t    = W.param "sessiontoken" .~ [unSessionToken token]
@@ -171,7 +167,7 @@ PlaceDetails {_status = OK, _result = PlaceDetailsResult {_name = "Tegucigalpa",
 
 -}
 
-placeDetailsRequest :: SessionToken -> Text -> IO PlaceDetails
+placeDetailsRequest :: HasGoogleApiKey env => SessionToken -> Text -> RIO env PlaceDetails
 placeDetailsRequest token placeID =
     let url  = googleApiBase <> "/place/details/json"
         t    = W.param "sessiontoken" .~ [unSessionToken token]
@@ -205,7 +201,7 @@ zonedTime r t = posixSecondsToUTCTime corrected
   where
     corrected = realToFrac $ (toUnixTime t) - ((_dstOffset r) + (_rawOffset r))
 
-timeZoneRequest :: UTCTime -> PlaceCoordinates -> IO TimeZoneInfo
+timeZoneRequest :: HasGoogleApiKey env => UTCTime -> PlaceCoordinates -> RIO env TimeZoneInfo
 timeZoneRequest time place =
     let url = googleApiBase <> "/timezone/json"
         q =
@@ -215,14 +211,18 @@ timeZoneRequest time place =
         opts = W.defaults & q & p
     in  makeRequest opts url
 
--- inspired by: 
+-- inspired by:
 -- https://github.com/gvolpe/exchange-rates/blob/26edcc057ab2658e28aafccfc2d65a8f0d0c42a5/src/Http/Client/Forex.hs
 
-makeRequest :: forall  a . FromJSON a => W.Options -> Text -> IO a
-makeRequest opts url =
-    let optsWithKey =
-                opts & W.param "key" .~ ["AIzaSyACfUA2VBhSW53_kaJT3n_eufMOSjywTFk"]
-    in  (^. W.responseBody)
-            <$> (W.asJSON =<< W.getWith optsWithKey (unpack url) :: IO
-                      (W.Response a)
-                )
+wreqRequest :: forall a. FromJSON a => W.Options -> Text -> IO a
+wreqRequest optsWithKey url = do
+  response <- (W.asJSON =<< W.getWith optsWithKey (unpack url) :: IO (W.Response a))
+  pure $ response ^. W.responseBody
+
+makeRequest :: (HasGoogleApiKey env, FromJSON a) => W.Options -> Text -> RIO env a
+makeRequest opts url = do
+  GoogleApiKey apiKey <- view googleApiKeyL
+  let optsWithKey =
+        opts & W.param "key" .~ [pack apiKey]
+    in liftIO $ wreqRequest optsWithKey url
+

@@ -1,22 +1,34 @@
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
 module Types where
 
-import RIO
-import RIO.Process
+import           RIO
 
--- | Command line arguments
-data Options = Options
-  { optionsVerbose :: !Bool
-  }
+newtype EphePath = EphePath { unEphePath :: String } deriving (Show)
+newtype Port     = Port { unPort :: Int } deriving (Show)
+newtype GoogleApiKey = GoogleApiKey { unKey :: String } deriving (Show)
 
 data App = App
-  { appLogFunc :: !LogFunc
-  , appProcessContext :: !ProcessContext
-  , appOptions :: !Options
-  -- Add other app-specific configuration information here
+  { appLogFunc      :: !LogFunc
+  , appEphePath     :: !EphePath
+  , appPort         :: !Port
+  , appGoogleApiKey :: !GoogleApiKey
   }
 
 instance HasLogFunc App where
   logFuncL = lens appLogFunc (\x y -> x { appLogFunc = y })
-instance HasProcessContext App where
-  processContextL = lens appProcessContext (\x y -> x { appProcessContext = y })
+
+class HasEphePath env where
+  ephePathL :: Lens' env EphePath
+instance HasEphePath App where
+  ephePathL = lens appEphePath (\x y -> x { appEphePath = y})
+
+class HasPort env where
+  portL :: Lens' env Port
+instance HasPort App where
+  portL = lens appPort (\x y -> x { appPort = y})
+
+class HasGoogleApiKey env where
+  googleApiKeyL :: Lens' env GoogleApiKey
+instance HasGoogleApiKey App where
+  googleApiKeyL = lens appGoogleApiKey (\x y -> x { appGoogleApiKey = y})
