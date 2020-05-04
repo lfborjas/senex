@@ -97,16 +97,19 @@ type AppM = ReaderT AppCtx Servant.Handler
 
 horoscope :: AstroRequest -> AppM Astro
 horoscope (AstroRequest dateOfBirth location@(latitude, longitude)) = do
-  timezoneInfo <- liftIO $ timeZoneRequest dateOfBirth (PlaceCoordinates (fromFloatDigits latitude) (fromFloatDigits longitude))
+  env <- ask
+  timezoneInfo <- liftIO $ runRIO env $ timeZoneRequest dateOfBirth (PlaceCoordinates (fromFloatDigits latitude) (fromFloatDigits longitude))
   return $ astroData (zonedTime timezoneInfo dateOfBirth) location
 
 autocompleteHandler :: Text -> Text -> AppM Autocomplete
-autocompleteHandler q token =
-  liftIO $ placeAutoCompleteRequest (SessionToken token) q
+autocompleteHandler q token = do
+  env <- ask
+  liftIO $ runRIO env $ placeAutoCompleteRequest (SessionToken token) q
 
 placeDetailsHandler :: Text -> Text -> AppM PlaceDetails
-placeDetailsHandler p token =
-  liftIO $ placeDetailsRequest (SessionToken token) p
+placeDetailsHandler p token = do
+  env <- ask
+  liftIO $ runRIO env $ placeDetailsRequest (SessionToken token) p
 
 apiServer :: Servant.ServerT Api AppM
 apiServer = horoscope
